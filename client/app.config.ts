@@ -20,8 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#f0f7f6"
       },
       "package": `com.anonymous.x${projectId || '0'}`
     },
@@ -40,10 +39,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#f0f7f6"
         }
       ],
       [
