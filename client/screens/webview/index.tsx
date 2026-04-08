@@ -18,6 +18,13 @@ import { Screen } from '@/components/Screen';
 import { storage } from '@/utils/storage';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
+// 移动端User Agent
+const MOBILE_USER_AGENT = Platform.select({
+  ios: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+  android: 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+  web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+});
+
 export default function WebViewScreen() {
   const insets = useSafeAreaInsets();
   const router = useSafeRouter();
@@ -38,16 +45,11 @@ export default function WebViewScreen() {
   const [favTitle, setFavTitle] = useState(currentTitle);
   const [currentUrlState, setCurrentUrlState] = useState(currentUrl);
 
-  // 检查是否已收藏
-  const checkFavorite = useCallback(async () => {
-    const isFav = await storage.isFavorite(currentUrlState);
-    setIsFavorite(isFav);
-  }, [currentUrlState]);
-
-  // 初始加载时检查收藏状态
+  // 初始检查收藏状态
   React.useEffect(() => {
-    checkFavorite();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    storage.isFavorite(currentUrlState).then((isFav) => {
+      setIsFavorite(isFav);
+    });
   }, []);
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
@@ -55,7 +57,6 @@ export default function WebViewScreen() {
     setCanGoForward(navState.canGoForward);
     const newUrl = navState.url;
     setCurrentUrlState(newUrl);
-    // 异步检查收藏状态
     storage.isFavorite(newUrl).then((isFav) => {
       setIsFavorite(isFav);
     });
@@ -63,7 +64,6 @@ export default function WebViewScreen() {
 
   const handleAddFavorite = async () => {
     if (isFavorite) {
-      // 取消收藏
       const favorites = await storage.getFavorites();
       const item = favorites.find(f => f.url === currentUrlState);
       if (item) {
@@ -72,7 +72,6 @@ export default function WebViewScreen() {
         Alert.alert('已取消收藏', '该页面已从收藏夹移除');
       }
     } else {
-      // 添加收藏
       setFavTitle(currentTitleState);
       setShowAddFavorite(true);
     }
@@ -107,6 +106,46 @@ export default function WebViewScreen() {
     }
     setShowMenu(false);
   };
+
+  // 注入CSS优化样式
+  const injectCSS = `
+    (function() {
+      // 检测是否为移动端，如果没有viewport meta则注入
+      if (!document.querySelector('meta[name="viewport"]')) {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+        document.head.appendChild(meta);
+      }
+      
+      // 优化表格和容器的宽度
+      var style = document.createElement('style');
+      style.textContent = \`
+        body { 
+          -webkit-text-size-adjust: 100% !important;
+          text-size-adjust: 100% !important;
+        }
+        table { 
+          width: 100% !important; 
+          max-width: 100% !important;
+          font-size: 14px !important;
+        }
+        td, th { 
+          padding: 8px !important; 
+          font-size: 13px !important;
+        }
+        input, select, textarea {
+          font-size: 16px !important;
+        }
+        * {
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+        }
+      \`;
+      document.head.appendChild(style);
+    })();
+    true;
+  `;
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
@@ -204,13 +243,17 @@ export default function WebViewScreen() {
           </TouchableOpacity>
         )}
 
-        {/* WebView */}
+        {/* WebView - 移动端优化配置 */}
         <View className="flex-1">
           <WebView
             ref={webViewRef}
             source={{ uri: currentUrl }}
-            className="flex-1"
+            style={{ flex: 1 }}
+            // 移动端User Agent
+            userAgent={MOBILE_USER_AGENT}
+            // 导航状态变化
             onNavigationStateChange={handleNavigationStateChange}
+            // 加载状态
             onLoadStart={() => {
               setLoading(true);
               setProgress(0);
@@ -222,11 +265,46 @@ export default function WebViewScreen() {
               setLoading(false);
               setProgress(1);
             }}
-            allowsBackForwardNavigationGestures
-            incognito={false}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState
+            // 移动端优化设置
+            allowsBackForwardNavigationGestures={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            // 防止跳转到外部浏览器
+            onShouldStartLoadWithRequest={(request) => {
+              const { url } = request;
+              // 允许内部链接
+              if (url.startsWith('http://') || url.startsWith('https://')) {
+                return true;
+              }
+              // 其他链接询问是否打开
+              Alert.alert(
+                '提示',
+                '是否在浏览器中打开此链接？',
+                [
+                  { text: '取消', style: 'cancel' },
+                  { text: '打开', onPress: () => Linking.openURL(url) },
+                ]
+              );
+              return false;
+            }}
+            // iOS特定优化
+            {...(Platform.OS === 'ios' ? {
+              allowsInlineMediaPlayback: true,
+              bounces: true,
+              paginationMode: false,
+            } : {})}
+            // Android特定优化
+            {...(Platform.OS === 'android' ? {
+              thirdPartyCookiesEnabled: true,
+              allowFileAccess: true,
+              cacheEnabled: true,
+              loadWithOverviewMode: true,
+              useWideViewPort: true,
+            } : {})}
+            // 注入CSS优化
+            injectedJavaScript={injectCSS}
+            // 加载指示器
+            startInLoadingState={true}
             renderLoading={() => (
               <View className="absolute inset-0 items-center justify-center bg-white">
                 <ActivityIndicator size="large" color="#0EA5E9" />
