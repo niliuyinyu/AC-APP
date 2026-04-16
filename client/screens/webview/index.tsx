@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Dimensions,
 } from 'react-native';
 import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,10 +24,100 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 注入JS - 拦截window.open，让所有链接在WebView内打开
+// 竖屏样式
+const PORTRAIT_CSS = `
+var style = document.createElement('style');
+style.id = 'mobile-optimize-style';
+style.textContent = \`
+  * { -webkit-tap-highlight-color: transparent !important; }
+  body { 
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+  }
+  input, textarea, select {
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+  }
+  table { width: 100% !important; max-width: 100% !important; }
+  td, th { padding: 6px !important; font-size: 13px !important; }
+  input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+\`;
+if (!document.getElementById('mobile-optimize-style')) {
+  document.head.appendChild(style);
+}
+if (!document.querySelector('meta[name="viewport"]')) {
+  var meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+  document.head.appendChild(meta);
+}
+`;
+
+// 横屏样式 - 缩放60%
+const LANDSCAPE_CSS = `
+var style = document.getElementById('mobile-optimize-style');
+if (style) {
+  style.textContent = \`
+    * { -webkit-tap-highlight-color: transparent !important; }
+    body { 
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important;
+      min-width: 166.67vw !important;
+    }
+    html, body { overflow-x: auto !important; }
+    input, textarea, select {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    table { width: 100% !important; max-width: 100% !important; }
+    td, th { padding: 6px !important; font-size: 12px !important; }
+    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+    /* 隐藏不必要的侧边栏 */
+    .sidebar, .aside, [class*="sidebar"], [class*="aside"] {
+      display: none !important;
+    }
+  \`;
+} else {
+  var newStyle = document.createElement('style');
+  newStyle.id = 'mobile-optimize-style';
+  newStyle.textContent = \`
+    * { -webkit-tap-highlight-color: transparent !important; }
+    body { 
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important;
+    }
+    html, body { overflow-x: auto !important; }
+    input, textarea, select {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    table { width: 100% !important; max-width: 100% !important; }
+    td, th { padding: 6px !important; font-size: 12px !important; }
+    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+  \`;
+  document.head.appendChild(newStyle);
+}
+// 更新viewport
+var viewport = document.querySelector('meta[name="viewport"]');
+if (viewport) {
+  viewport.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
+} else {
+  var meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
+  document.head.appendChild(meta);
+}
+`;
+
+// 注入JS - 拦截window.open
 const INTERCEPT_JS = `
 (function() {
-  // 拦截 window.open
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
       window.location.href = url;
@@ -36,7 +125,6 @@ const INTERCEPT_JS = `
     return null;
   };
   
-  // 拦截所有链接点击
   document.addEventListener('click', function(e) {
     var target = e.target;
     while (target && target.tagName !== 'A') {
@@ -65,7 +153,6 @@ const INTERCEPT_JS = `
     }
   }, true);
   
-  // 拦截表单提交
   document.addEventListener('submit', function(e) {
     var form = e.target;
     if (form && form.action) {
@@ -76,42 +163,87 @@ const INTERCEPT_JS = `
       }));
     }
   }, true);
-  
-  // 注入样式优化
-  var style = document.createElement('style');
+})();
+true;
+`;
+
+// 横屏切换JS
+const LANDSCAPE_SWITCH_JS = `
+var style = document.getElementById('mobile-optimize-style');
+if (style) {
   style.textContent = \`
-    * {
-      -webkit-tap-highlight-color: transparent !important;
-    }
+    * { -webkit-tap-highlight-color: transparent !important; }
     body { 
       -webkit-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important;
+    }
+    html, body { overflow-x: auto !important; }
+    input, textarea, select {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    table { width: 100% !important; max-width: 100% !important; }
+    td, th { padding: 6px !important; font-size: 12px !important; }
+    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+  \`;
+} else {
+  var newStyle = document.createElement('style');
+  newStyle.id = 'mobile-optimize-style';
+  newStyle.textContent = \`
+    * { -webkit-tap-highlight-color: transparent !important; }
+    body { 
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important;
+    }
+    html, body { overflow-x: auto !important; }
+    input, textarea, select {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    table { width: 100% !important; max-width: 100% !important; }
+    td, th { padding: 6px !important; font-size: 12px !important; }
+    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+  \`;
+  document.head.appendChild(newStyle);
+}
+var viewport = document.querySelector('meta[name="viewport"]');
+if (viewport) {
+  viewport.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
+}
+true;
+`;
+
+// 竖屏切换JS
+const PORTRAIT_SWITCH_JS = `
+var style = document.getElementById('mobile-optimize-style');
+if (style) {
+  style.textContent = \`
+    * { -webkit-tap-highlight-color: transparent !important; }
+    body { 
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      transform: none !important;
+      width: 100% !important;
     }
     input, textarea, select {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    table { 
-      width: 100% !important; 
-      max-width: 100% !important;
-    }
-    td, th { 
-      padding: 6px !important; 
-    }
-    input, select, textarea {
-      font-size: 16px !important;
-      min-height: 44px !important;
-    }
+    table { width: 100% !important; max-width: 100% !important; }
+    td, th { padding: 6px !important; font-size: 13px !important; }
+    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
   \`;
-  document.head.appendChild(style);
-  
-  if (!document.querySelector('meta[name="viewport"]')) {
-    var meta = document.createElement('meta');
-    meta.name = 'viewport';
-    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-    document.head.appendChild(meta);
-  }
-})();
+}
+var viewport = document.querySelector('meta[name="viewport"]');
+if (viewport) {
+  viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+}
 true;
 `;
 
@@ -142,9 +274,17 @@ export default function WebViewScreen() {
       if (isLandscape) {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
         setIsLandscape(false);
+        // 恢复竖屏样式
+        setTimeout(() => {
+          webViewRef.current?.injectJavaScript(PORTRAIT_SWITCH_JS);
+        }, 100);
       } else {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         setIsLandscape(true);
+        // 应用横屏样式
+        setTimeout(() => {
+          webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
+        }, 100);
       }
     } catch (error) {
       console.log('Orientation error:', error);
@@ -157,7 +297,6 @@ export default function WebViewScreen() {
       setIsFavorite(isFav);
     });
 
-    // 组件卸载时恢复竖屏
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
     };
@@ -169,11 +308,33 @@ export default function WebViewScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate') {
         webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
+        // 切换后应用当前方向的样式
+        setTimeout(() => {
+          if (isLandscape) {
+            webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
+          } else {
+            webViewRef.current?.injectJavaScript(PORTRAIT_SWITCH_JS);
+          }
+        }, 500);
       }
     } catch (e) {
       // 忽略
     }
-  }, []);
+  }, [isLandscape]);
+
+  // 页面加载完成后应用样式
+  const handleLoadEnd = () => {
+    setLoading(false);
+    setProgress(1);
+    // 加载完成后应用当前方向的样式
+    setTimeout(() => {
+      if (isLandscape) {
+        webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
+      } else {
+        webViewRef.current?.injectJavaScript(PORTRAIT_CSS);
+      }
+    }, 300);
+  };
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
@@ -217,14 +378,18 @@ export default function WebViewScreen() {
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
-      <View className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}>
+      <View 
+        className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}
+        style={isLandscape ? { flexDirection: 'row' } : {}}
+      >
         {/* Header */}
         <View 
-          className="bg-white border-b border-gray-100"
+          className={`bg-white border-gray-100 ${isLandscape ? 'border-r border-b' : 'border-b'}`}
           style={{ 
-            paddingTop: insets.top,
+            paddingTop: isLandscape ? 0 : insets.top,
             width: isLandscape ? 50 : '100%',
             height: isLandscape ? '100%' : undefined,
+            minHeight: isLandscape ? undefined : 0,
           }}
         >
           <View className={`flex-row items-center ${isLandscape ? 'flex-col justify-center h-full px-1' : 'h-12 px-2'}`}>
@@ -253,7 +418,6 @@ export default function WebViewScreen() {
               </View>
             )}
 
-            {/* 横屏按钮 */}
             <TouchableOpacity 
               className={`items-center justify-center ${isLandscape ? 'w-10 h-14' : 'w-10 h-12'}`}
               onPress={toggleOrientation}
@@ -276,7 +440,7 @@ export default function WebViewScreen() {
           )}
         </View>
 
-        {/* 竖屏时的标题 */}
+        {/* 竖屏时的标题栏 */}
         {!isLandscape && (
           <View className="flex-row items-center px-3 py-2 bg-gray-50">
             <Text className="text-xs text-gray-500 flex-1" numberOfLines={1}>
@@ -317,7 +481,10 @@ export default function WebViewScreen() {
         )}
 
         {/* WebView */}
-        <View className="flex-1">
+        <View 
+          className="flex-1"
+          style={isLandscape ? { width: '100%' } : {}}
+        >
           <WebView
             ref={webViewRef}
             source={{ uri: currentUrl }}
@@ -331,10 +498,7 @@ export default function WebViewScreen() {
             onLoadProgress={({ nativeEvent }) => {
               setProgress(nativeEvent.progress);
             }}
-            onLoadEnd={() => {
-              setLoading(false);
-              setProgress(1);
-            }}
+            onLoadEnd={handleLoadEnd}
             onMessage={handleMessage}
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
