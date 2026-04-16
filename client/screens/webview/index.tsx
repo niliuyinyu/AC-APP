@@ -11,7 +11,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { WebView, WebViewNavigation } from 'react-native-webview';
+import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
@@ -24,6 +24,87 @@ const MOBILE_USER_AGENT = Platform.select({
   android: 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
+
+// 拦截JS代码
+const INTERCEPT_JS = `
+(function() {
+  // 拦截 window.open
+  window.open = function(url, name, specs) {
+    if (url && url !== 'about:blank') {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'openUrl',
+        url: url
+      }));
+      return null;
+    }
+  };
+  
+  // 拦截所有链接点击（通过事件委托）
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    while (target && target.tagName !== 'A') {
+      target = target.parentElement;
+    }
+    if (target && target.href) {
+      var href = target.href;
+      // 排除锚点跳转
+      if (href.startsWith('#') || href === 'javascript:void(0)' || href === 'javascript:;') {
+        return;
+      }
+      // 通过postMessage通知RN
+      e.preventDefault();
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'clickLink',
+        url: href
+      }));
+    }
+  }, true);
+  
+  // 注入样式优化
+  var style = document.createElement('style');
+  style.textContent = \`
+    * {
+      -webkit-tap-highlight-color: transparent !important;
+    }
+    body { 
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+    }
+    input, textarea, select {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    table { 
+      width: 100% !important; 
+      max-width: 100% !important;
+      font-size: 14px !important;
+    }
+    td, th { 
+      padding: 6px !important; 
+      font-size: 13px !important;
+    }
+    input, select, textarea {
+      font-size: 16px !important;
+      min-height: 44px !important;
+    }
+    a, button {
+      min-height: 44px !important;
+    }
+  \`;
+  document.head.appendChild(style);
+  
+  // 添加viewport meta（如果没有）
+  if (!document.querySelector('meta[name="viewport"]')) {
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+    document.head.appendChild(meta);
+  }
+})();
+true;
+`;
 
 export default function WebViewScreen() {
   const insets = useSafeAreaInsets();
@@ -50,6 +131,38 @@ export default function WebViewScreen() {
     storage.isFavorite(currentUrlState).then((isFav) => {
       setIsFavorite(isFav);
     });
+  }, []);
+
+  // 处理WebView传来的消息（拦截的链接点击等）
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'clickLink' || data.type === 'openUrl') {
+        const clickedUrl = data.url;
+        // 判断是否是外部链接
+        const isExternal = !clickedUrl.includes('nlyy.online') && 
+                           !clickedUrl.includes('91cost.com') &&
+                           !clickedUrl.startsWith('http://localhost') &&
+                           !clickedUrl.includes(window.location.hostname);
+        
+        if (isExternal) {
+          // 外部链接，询问是否打开
+          Alert.alert(
+            '提示',
+            '是否在浏览器中打开此链接？',
+            [
+              { text: '取消', style: 'cancel' },
+              { text: '打开', onPress: () => Linking.openURL(clickedUrl) },
+            ]
+          );
+        } else {
+          // 内部链接，在WebView中加载
+          webViewRef.current?.injectJavaScript(`window.location.href = '${clickedUrl}'; true;`);
+        }
+      }
+    } catch (e) {
+      // 忽略解析错误
+    }
   }, []);
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
@@ -107,45 +220,40 @@ export default function WebViewScreen() {
     setShowMenu(false);
   };
 
-  // 注入CSS优化样式
-  const injectCSS = `
-    (function() {
-      // 检测是否为移动端，如果没有viewport meta则注入
-      if (!document.querySelector('meta[name="viewport"]')) {
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-        document.head.appendChild(meta);
-      }
-      
-      // 优化表格和容器的宽度
-      var style = document.createElement('style');
-      style.textContent = \`
-        body { 
-          -webkit-text-size-adjust: 100% !important;
-          text-size-adjust: 100% !important;
-        }
-        table { 
-          width: 100% !important; 
-          max-width: 100% !important;
-          font-size: 14px !important;
-        }
-        td, th { 
-          padding: 8px !important; 
-          font-size: 13px !important;
-        }
-        input, select, textarea {
-          font-size: 16px !important;
-        }
-        * {
-          max-width: 100% !important;
-          box-sizing: border-box !important;
-        }
-      \`;
-      document.head.appendChild(style);
-    })();
-    true;
-  `;
+  // 拦截外部链接
+  const shouldStartLoadWithRequest = (request: any) => {
+    const { url } = request;
+    
+    // 内部域名允许加载
+    if (url.includes('nlyy.online') || 
+        url.includes('91cost.com') ||
+        url.startsWith('http://localhost') ||
+        url.startsWith('https://localhost')) {
+      return true;
+    }
+    
+    // http/https链接
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // 询问用户
+      Alert.alert(
+        '提示',
+        '此链接可能跳转至第三方网站，是否继续？',
+        [
+          { text: '留在APP', style: 'cancel', onPress: () => {} },
+          { text: '用浏览器打开', onPress: () => Linking.openURL(url) },
+        ]
+      );
+      return false;
+    }
+    
+    // 其他协议（tel:, mailto:等）允许或询问
+    if (url.startsWith('tel:') || url.startsWith('mailto:')) {
+      Linking.openURL(url);
+      return false;
+    }
+    
+    return false;
+  };
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
@@ -243,7 +351,7 @@ export default function WebViewScreen() {
           </TouchableOpacity>
         )}
 
-        {/* WebView - 移动端优化配置 */}
+        {/* WebView - 完全拦截优化 */}
         <View className="flex-1">
           <WebView
             ref={webViewRef}
@@ -265,44 +373,28 @@ export default function WebViewScreen() {
               setLoading(false);
               setProgress(1);
             }}
+            // 拦截WebView消息（JS调用postMessage）
+            onMessage={handleMessage}
+            // 拦截请求
+            onShouldStartLoadWithRequest={shouldStartLoadWithRequest}
             // 移动端优化设置
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            // 防止跳转到外部浏览器
-            onShouldStartLoadWithRequest={(request) => {
-              const { url } = request;
-              // 允许内部链接
-              if (url.startsWith('http://') || url.startsWith('https://')) {
-                return true;
-              }
-              // 其他链接询问是否打开
-              Alert.alert(
-                '提示',
-                '是否在浏览器中打开此链接？',
-                [
-                  { text: '取消', style: 'cancel' },
-                  { text: '打开', onPress: () => Linking.openURL(url) },
-                ]
-              );
-              return false;
-            }}
-            // iOS特定优化
+            // iOS特定
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
-              paginationMode: false,
             } : {})}
-            // Android特定优化
+            // Android特定
             {...(Platform.OS === 'android' ? {
               thirdPartyCookiesEnabled: true,
-              allowFileAccess: true,
               cacheEnabled: true,
               loadWithOverviewMode: true,
               useWideViewPort: true,
             } : {})}
-            // 注入CSS优化
-            injectedJavaScript={injectCSS}
+            // 注入JS拦截代码
+            injectedJavaScript={INTERCEPT_JS}
             // 加载指示器
             startInLoadingState={true}
             renderLoading={() => (
