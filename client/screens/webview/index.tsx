@@ -8,8 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
-  Linking,
 } from 'react-native';
 import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,36 +23,20 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 内部域名列表
-const INTERNAL_DOMAINS = ['nlyy.online', '91cost.com'];
-
-// 判断是否是内部链接
-const isInternalUrl = (url: string): boolean => {
-  return INTERNAL_DOMAINS.some(domain => url.includes(domain));
-};
-
-// 注入JS - 拦截window.open和链接点击
+// 注入JS - 拦截window.open，让所有链接在WebView内打开
 const INTERCEPT_JS = `
 (function() {
-  // 保存原始location
-  var originalHref = window.location.href;
-  
-  // 拦截 window.open
+  // 拦截 window.open - 直接用location跳转，不开新窗口
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'openUrl',
-        url: url,
-        source: 'window.open'
-      }));
-      return null;
+      window.location.href = url;
     }
+    return null;
   };
   
-  // 拦截所有链接点击
+  // 拦截所有链接点击 - 通过事件委托
   document.addEventListener('click', function(e) {
     var target = e.target;
-    // 向上查找a标签
     while (target && target.tagName !== 'A') {
       target = target.parentElement;
     }
@@ -69,21 +51,35 @@ const INTERCEPT_JS = `
       }
       
       // 排除锚点跳转
-      if (href === originalHref || href === window.location.href) {
+      if (href.startsWith('#')) {
         return;
       }
       
-      // 通知RN处理
+      // 阻止默认行为，让WebView处理
       e.preventDefault();
       e.stopPropagation();
+      
+      // 通过postMessage通知RN使用WebView导航
       window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'clickLink',
+        type: 'navigate',
         url: href
       }));
     }
   }, true);
   
-  // 注入样式
+  // 拦截表单提交
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (form && form.action) {
+      e.preventDefault();
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'navigate',
+        url: form.action
+      }));
+    }
+  }, true);
+  
+  // 注入样式优化
   var style = document.createElement('style');
   style.textContent = \`
     * {
@@ -149,30 +145,16 @@ export default function WebViewScreen() {
     });
   }, []);
 
-  // 处理JS发送的消息
+  // 处理JS发送的消息 - 直接导航
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'clickLink' || data.type === 'openUrl') {
-        const clickedUrl = data.url;
-        
-        if (isInternalUrl(clickedUrl)) {
-          // 内部链接：在WebView中加载
-          webViewRef.current?.injectJavaScript(`window.location.href = "${clickedUrl}"; true;`);
-        } else {
-          // 外部链接：询问
-          Alert.alert(
-            '提示',
-            '此链接将跳转到第三方网站，是否继续？',
-            [
-              { text: '取消', style: 'cancel' },
-              { text: '用浏览器打开', onPress: () => Linking.openURL(clickedUrl) },
-            ]
-          );
-        }
+      if (data.type === 'navigate') {
+        // 直接加载新URL
+        webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
       }
     } catch (e) {
-      // 忽略解析错误
+      // 忽略
     }
   }, []);
 
@@ -193,7 +175,6 @@ export default function WebViewScreen() {
       if (item) {
         await storage.removeFavorite(item.id);
         setIsFavorite(false);
-        Alert.alert('已取消收藏', '该页面已从收藏夹移除');
       }
     } else {
       setFavTitle(currentTitleState);
@@ -204,7 +185,6 @@ export default function WebViewScreen() {
 
   const confirmAddFavorite = async () => {
     if (!favTitle.trim()) {
-      Alert.alert('提示', '请输入收藏名称');
       return;
     }
     await storage.addFavorite({
@@ -213,53 +193,11 @@ export default function WebViewScreen() {
     });
     setIsFavorite(true);
     setShowAddFavorite(false);
-    Alert.alert('收藏成功', '该页面已添加到收藏夹');
   };
 
   const handleSetHomePage = async () => {
     await storage.setHomePage(currentUrlState);
     setShowMenu(false);
-    Alert.alert('设置成功', '该页面已设为主页');
-  };
-
-  const handleOpenExternal = async () => {
-    try {
-      await Linking.openURL(currentUrlState);
-    } catch (error) {
-      console.error('无法打开外部链接:', error);
-    }
-    setShowMenu(false);
-  };
-
-  // 拦截请求 - 只对外部链接弹确认
-  const shouldStartLoadWithRequest = (request: any) => {
-    const { url } = request;
-    
-    // 内部链接直接放行
-    if (isInternalUrl(url)) {
-      return true;
-    }
-    
-    // 外部http链接弹确认
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      Alert.alert(
-        '提示',
-        '此链接将跳转到第三方网站，是否继续？',
-        [
-          { text: '取消', style: 'cancel' },
-          { text: '用浏览器打开', onPress: () => Linking.openURL(url) },
-        ]
-      );
-      return false;
-    }
-    
-    // tel/mailto等协议
-    if (url.startsWith('tel:') || url.startsWith('mailto:')) {
-      Linking.openURL(url);
-      return false;
-    }
-    
-    return false;
   };
 
   return (
@@ -316,7 +254,7 @@ export default function WebViewScreen() {
         {showMenu && (
           <TouchableOpacity 
             className="absolute right-2 top-14 bg-white rounded-xl shadow-lg py-2 z-50"
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             onPress={() => setShowMenu(false)}
             activeOpacity={1}
           >
@@ -340,13 +278,6 @@ export default function WebViewScreen() {
               <FontAwesome6 name="house" size={16} color="#6B7280" />
               <Text className="ml-3 text-sm text-gray-700">设为主页</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              className="flex-row items-center px-4 py-3"
-              onPress={handleOpenExternal}
-            >
-              <FontAwesome6 name="up-right-from-square" size={16} color="#6B7280" />
-              <Text className="ml-3 text-sm text-gray-700">浏览器打开</Text>
-            </TouchableOpacity>
             <View className="h-px bg-gray-100 my-1" />
             <View className="px-4 py-2">
               <Text className="text-xs text-gray-400">{currentUrlState}</Text>
@@ -354,7 +285,7 @@ export default function WebViewScreen() {
           </TouchableOpacity>
         )}
 
-        {/* WebView */}
+        {/* WebView - 所有链接都在内部加载 */}
         <View className="flex-1">
           <WebView
             ref={webViewRef}
@@ -374,7 +305,6 @@ export default function WebViewScreen() {
               setProgress(1);
             }}
             onMessage={handleMessage}
-            onShouldStartLoadWithRequest={shouldStartLoadWithRequest}
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
@@ -485,7 +415,6 @@ export default function WebViewScreen() {
                   placeholder="输入收藏名称"
                   placeholderTextColor="#9CA3AF"
                 />
-                <Text className="text-xs text-gray-400 mt-2">网址：{currentUrlState}</Text>
               </View>
               <View className="px-5 pb-4 flex-row gap-3">
                 <TouchableOpacity 
