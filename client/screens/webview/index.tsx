@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { Screen } from '@/components/Screen';
 import { storage } from '@/utils/storage';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
@@ -26,7 +28,7 @@ const MOBILE_USER_AGENT = Platform.select({
 // 注入JS - 拦截window.open，让所有链接在WebView内打开
 const INTERCEPT_JS = `
 (function() {
-  // 拦截 window.open - 直接用location跳转，不开新窗口
+  // 拦截 window.open
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
       window.location.href = url;
@@ -34,7 +36,7 @@ const INTERCEPT_JS = `
     return null;
   };
   
-  // 拦截所有链接点击 - 通过事件委托
+  // 拦截所有链接点击
   document.addEventListener('click', function(e) {
     var target = e.target;
     while (target && target.tagName !== 'A') {
@@ -44,22 +46,18 @@ const INTERCEPT_JS = `
     if (target && target.href) {
       var href = target.href;
       
-      // 排除空链接和javascript
       if (!href || href === '#' || href === 'javascript:void(0)' || 
           href === 'javascript:;' || href.startsWith('javascript:')) {
         return;
       }
       
-      // 排除锚点跳转
       if (href.startsWith('#')) {
         return;
       }
       
-      // 阻止默认行为，让WebView处理
       e.preventDefault();
       e.stopPropagation();
       
-      // 通过postMessage通知RN使用WebView导航
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'navigate',
         url: href
@@ -107,7 +105,6 @@ const INTERCEPT_JS = `
   \`;
   document.head.appendChild(style);
   
-  // 添加viewport
   if (!document.querySelector('meta[name="viewport"]')) {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
@@ -137,20 +134,40 @@ export default function WebViewScreen() {
   const [showAddFavorite, setShowAddFavorite] = useState(false);
   const [favTitle, setFavTitle] = useState(currentTitle);
   const [currentUrlState, setCurrentUrlState] = useState(currentUrl);
+  const [isLandscape, setIsLandscape] = useState(false);
+
+  // 切换横屏/竖屏
+  const toggleOrientation = async () => {
+    try {
+      if (isLandscape) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+        setIsLandscape(false);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        setIsLandscape(true);
+      }
+    } catch (error) {
+      console.log('Orientation error:', error);
+    }
+  };
 
   // 初始检查收藏状态
   React.useEffect(() => {
     storage.isFavorite(currentUrlState).then((isFav) => {
       setIsFavorite(isFav);
     });
+
+    // 组件卸载时恢复竖屏
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
+    };
   }, []);
 
-  // 处理JS发送的消息 - 直接导航
+  // 处理JS发送的消息
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate') {
-        // 直接加载新URL
         webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
       }
     } catch (e) {
@@ -184,9 +201,7 @@ export default function WebViewScreen() {
   };
 
   const confirmAddFavorite = async () => {
-    if (!favTitle.trim()) {
-      return;
-    }
+    if (!favTitle.trim()) return;
     await storage.addFavorite({
       title: favTitle.trim(),
       url: currentUrlState,
@@ -202,15 +217,19 @@ export default function WebViewScreen() {
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
-      <View className="flex-1 bg-[--background]">
+      <View className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}>
         {/* Header */}
         <View 
           className="bg-white border-b border-gray-100"
-          style={{ paddingTop: insets.top }}
+          style={{ 
+            paddingTop: insets.top,
+            width: isLandscape ? 50 : '100%',
+            height: isLandscape ? '100%' : undefined,
+          }}
         >
-          <View className="h-12 flex-row items-center px-2">
+          <View className={`flex-row items-center ${isLandscape ? 'flex-col justify-center h-full px-1' : 'h-12 px-2'}`}>
             <TouchableOpacity 
-              className="w-10 h-10 items-center justify-center"
+              className={`items-center justify-center ${isLandscape ? 'w-10 h-14' : 'w-10 h-12'}`}
               onPress={() => {
                 if (canGoBack) {
                   webViewRef.current?.goBack();
@@ -226,21 +245,28 @@ export default function WebViewScreen() {
               />
             </TouchableOpacity>
 
-            <View className="flex-1 px-2">
-              <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
-                {currentTitleState}
-              </Text>
-            </View>
+            {!isLandscape && (
+              <View className="flex-1 px-2">
+                <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
+                  {currentTitleState}
+                </Text>
+              </View>
+            )}
 
+            {/* 横屏按钮 */}
             <TouchableOpacity 
-              className="w-10 h-10 items-center justify-center"
-              onPress={() => setShowMenu(!showMenu)}
+              className={`items-center justify-center ${isLandscape ? 'w-10 h-14' : 'w-10 h-12'}`}
+              onPress={toggleOrientation}
             >
-              <FontAwesome6 name="ellipsis-vertical" size={18} color="#374151" />
+              <FontAwesome6 
+                name={isLandscape ? 'arrows-to-dot' : 'expand'} 
+                size={18} 
+                color="#374151" 
+              />
             </TouchableOpacity>
           </View>
 
-          {loading && (
+          {!isLandscape && (
             <View className="h-0.5 bg-gray-100">
               <View 
                 className="h-full bg-[--accent]" 
@@ -250,8 +276,17 @@ export default function WebViewScreen() {
           )}
         </View>
 
+        {/* 竖屏时的标题 */}
+        {!isLandscape && (
+          <View className="flex-row items-center px-3 py-2 bg-gray-50">
+            <Text className="text-xs text-gray-500 flex-1" numberOfLines={1}>
+              {currentTitleState}
+            </Text>
+          </View>
+        )}
+
         {/* 下拉菜单 */}
-        {showMenu && (
+        {!isLandscape && showMenu && (
           <TouchableOpacity 
             className="absolute right-2 top-14 bg-white rounded-xl shadow-lg py-2 z-50"
             style={{ width: 160 }}
@@ -278,14 +313,10 @@ export default function WebViewScreen() {
               <FontAwesome6 name="house" size={16} color="#6B7280" />
               <Text className="ml-3 text-sm text-gray-700">设为主页</Text>
             </TouchableOpacity>
-            <View className="h-px bg-gray-100 my-1" />
-            <View className="px-4 py-2">
-              <Text className="text-xs text-gray-400">{currentUrlState}</Text>
-            </View>
           </TouchableOpacity>
         )}
 
-        {/* WebView - 所有链接都在内部加载 */}
+        {/* WebView */}
         <View className="flex-1">
           <WebView
             ref={webViewRef}
@@ -329,63 +360,56 @@ export default function WebViewScreen() {
           />
         </View>
 
-        {/* 底部导航栏 */}
-        <View 
-          className="bg-white border-t border-gray-100 flex-row items-center justify-center py-2"
-          style={{ paddingBottom: insets.bottom + 4 }}
-        >
-          <TouchableOpacity 
-            className="flex-1 items-center py-2"
-            onPress={() => webViewRef.current?.goBack()}
-            disabled={!canGoBack}
+        {/* 底部导航栏 - 竖屏时显示 */}
+        {!isLandscape && (
+          <View 
+            className="bg-white border-t border-gray-100 flex-row items-center justify-center py-2"
+            style={{ paddingBottom: insets.bottom + 4 }}
           >
-            <FontAwesome6 
-              name="chevron-left" 
-              size={20} 
-              color={canGoBack ? '#374151' : '#D1D5DB'} 
-            />
-            <Text className={`text-xs mt-1 ${canGoBack ? 'text-gray-600' : 'text-gray-300'}`}>
-              返回
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className="flex-1 items-center py-2"
-            onPress={() => webViewRef.current?.goForward()}
-            disabled={!canGoForward}
-          >
-            <FontAwesome6 
-              name="chevron-right" 
-              size={20} 
-              color={canGoForward ? '#374151' : '#D1D5DB'} 
-            />
-            <Text className={`text-xs mt-1 ${canGoForward ? 'text-gray-600' : 'text-gray-300'}`}>
-              前进
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className="flex-1 items-center py-2"
-            onPress={() => webViewRef.current?.reload()}
-          >
-            <FontAwesome6 name="rotate-right" size={20} color="#374151" />
-            <Text className="text-xs mt-1 text-gray-600">刷新</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className="flex-1 items-center py-2"
-            onPress={() => {
-              setFavTitle(currentTitleState);
-              setShowAddFavorite(true);
-            }}
-          >
-            <FontAwesome6 
-              name="bookmark" 
-              size={20} 
-              color={isFavorite ? '#0EA5E9' : '#374151'} 
-            />
-            <Text className={`text-xs mt-1 ${isFavorite ? 'text-blue-500' : 'text-gray-600'}`}>
-              {isFavorite ? '已收藏' : '收藏'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              className="flex-1 items-center py-2"
+              onPress={() => webViewRef.current?.goBack()}
+              disabled={!canGoBack}
+            >
+              <FontAwesome6 
+                name="chevron-left" 
+                size={20} 
+                color={canGoBack ? '#374151' : '#D1D5DB'} 
+              />
+              <Text className={`text-xs mt-1 ${canGoBack ? 'text-gray-600' : 'text-gray-300'}`}>
+                返回
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="flex-1 items-center py-2"
+              onPress={() => webViewRef.current?.goForward()}
+              disabled={!canGoForward}
+            >
+              <FontAwesome6 
+                name="chevron-right" 
+                size={20} 
+                color={canGoForward ? '#374151' : '#D1D5DB'} 
+              />
+              <Text className={`text-xs mt-1 ${canGoForward ? 'text-gray-600' : 'text-gray-300'}`}>
+                前进
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="flex-1 items-center py-2"
+              onPress={() => webViewRef.current?.reload()}
+            >
+              <FontAwesome6 name="rotate-right" size={20} color="#374151" />
+              <Text className="text-xs mt-1 text-gray-600">刷新</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="flex-1 items-center py-2"
+              onPress={toggleOrientation}
+            >
+              <FontAwesome6 name="expand" size={20} color="#374151" />
+              <Text className="text-xs mt-1 text-gray-600">横屏</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 添加收藏弹窗 */}
         <Modal
