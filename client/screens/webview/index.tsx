@@ -25,34 +25,57 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 拦截JS代码
+// 内部域名列表
+const INTERNAL_DOMAINS = ['nlyy.online', '91cost.com'];
+
+// 判断是否是内部链接
+const isInternalUrl = (url: string): boolean => {
+  return INTERNAL_DOMAINS.some(domain => url.includes(domain));
+};
+
+// 注入JS - 拦截window.open和链接点击
 const INTERCEPT_JS = `
 (function() {
+  // 保存原始location
+  var originalHref = window.location.href;
+  
   // 拦截 window.open
   window.open = function(url, name, specs) {
-    if (url && url !== 'about:blank') {
+    if (url && url !== 'about:blank' && url !== '') {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'openUrl',
-        url: url
+        url: url,
+        source: 'window.open'
       }));
       return null;
     }
   };
   
-  // 拦截所有链接点击（通过事件委托）
+  // 拦截所有链接点击
   document.addEventListener('click', function(e) {
     var target = e.target;
+    // 向上查找a标签
     while (target && target.tagName !== 'A') {
       target = target.parentElement;
     }
+    
     if (target && target.href) {
       var href = target.href;
-      // 排除锚点跳转
-      if (href.startsWith('#') || href === 'javascript:void(0)' || href === 'javascript:;') {
+      
+      // 排除空链接和javascript
+      if (!href || href === '#' || href === 'javascript:void(0)' || 
+          href === 'javascript:;' || href.startsWith('javascript:')) {
         return;
       }
-      // 通过postMessage通知RN
+      
+      // 排除锚点跳转
+      if (href === originalHref || href === window.location.href) {
+        return;
+      }
+      
+      // 通知RN处理
       e.preventDefault();
+      e.stopPropagation();
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'clickLink',
         url: href
@@ -60,7 +83,7 @@ const INTERCEPT_JS = `
     }
   }, true);
   
-  // 注入样式优化
+  // 注入样式
   var style = document.createElement('style');
   style.textContent = \`
     * {
@@ -69,8 +92,6 @@ const INTERCEPT_JS = `
     body { 
       -webkit-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
-      -webkit-user-select: none !important;
-      user-select: none !important;
     }
     input, textarea, select {
       -webkit-user-select: auto !important;
@@ -79,23 +100,18 @@ const INTERCEPT_JS = `
     table { 
       width: 100% !important; 
       max-width: 100% !important;
-      font-size: 14px !important;
     }
     td, th { 
       padding: 6px !important; 
-      font-size: 13px !important;
     }
     input, select, textarea {
       font-size: 16px !important;
       min-height: 44px !important;
     }
-    a, button {
-      min-height: 44px !important;
-    }
   \`;
   document.head.appendChild(style);
   
-  // 添加viewport meta（如果没有）
+  // 添加viewport
   if (!document.querySelector('meta[name="viewport"]')) {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
@@ -133,31 +149,26 @@ export default function WebViewScreen() {
     });
   }, []);
 
-  // 处理WebView传来的消息（拦截的链接点击等）
+  // 处理JS发送的消息
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'clickLink' || data.type === 'openUrl') {
         const clickedUrl = data.url;
-        // 判断是否是外部链接
-        const isExternal = !clickedUrl.includes('nlyy.online') && 
-                           !clickedUrl.includes('91cost.com') &&
-                           !clickedUrl.startsWith('http://localhost') &&
-                           !clickedUrl.includes(window.location.hostname);
         
-        if (isExternal) {
-          // 外部链接，询问是否打开
+        if (isInternalUrl(clickedUrl)) {
+          // 内部链接：在WebView中加载
+          webViewRef.current?.injectJavaScript(`window.location.href = "${clickedUrl}"; true;`);
+        } else {
+          // 外部链接：询问
           Alert.alert(
             '提示',
-            '是否在浏览器中打开此链接？',
+            '此链接将跳转到第三方网站，是否继续？',
             [
               { text: '取消', style: 'cancel' },
-              { text: '打开', onPress: () => Linking.openURL(clickedUrl) },
+              { text: '用浏览器打开', onPress: () => Linking.openURL(clickedUrl) },
             ]
           );
-        } else {
-          // 内部链接，在WebView中加载
-          webViewRef.current?.injectJavaScript(`window.location.href = '${clickedUrl}'; true;`);
         }
       }
     } catch (e) {
@@ -220,33 +231,29 @@ export default function WebViewScreen() {
     setShowMenu(false);
   };
 
-  // 拦截外部链接
+  // 拦截请求 - 只对外部链接弹确认
   const shouldStartLoadWithRequest = (request: any) => {
     const { url } = request;
     
-    // 内部域名允许加载
-    if (url.includes('nlyy.online') || 
-        url.includes('91cost.com') ||
-        url.startsWith('http://localhost') ||
-        url.startsWith('https://localhost')) {
+    // 内部链接直接放行
+    if (isInternalUrl(url)) {
       return true;
     }
     
-    // http/https链接
+    // 外部http链接弹确认
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      // 询问用户
       Alert.alert(
         '提示',
-        '此链接可能跳转至第三方网站，是否继续？',
+        '此链接将跳转到第三方网站，是否继续？',
         [
-          { text: '留在APP', style: 'cancel', onPress: () => {} },
+          { text: '取消', style: 'cancel' },
           { text: '用浏览器打开', onPress: () => Linking.openURL(url) },
         ]
       );
       return false;
     }
     
-    // 其他协议（tel:, mailto:等）允许或询问
+    // tel/mailto等协议
     if (url.startsWith('tel:') || url.startsWith('mailto:')) {
       Linking.openURL(url);
       return false;
@@ -264,7 +271,6 @@ export default function WebViewScreen() {
           style={{ paddingTop: insets.top }}
         >
           <View className="h-12 flex-row items-center px-2">
-            {/* 返回按钮 */}
             <TouchableOpacity 
               className="w-10 h-10 items-center justify-center"
               onPress={() => {
@@ -282,14 +288,12 @@ export default function WebViewScreen() {
               />
             </TouchableOpacity>
 
-            {/* 标题 */}
             <View className="flex-1 px-2">
               <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
                 {currentTitleState}
               </Text>
             </View>
 
-            {/* 更多菜单 */}
             <TouchableOpacity 
               className="w-10 h-10 items-center justify-center"
               onPress={() => setShowMenu(!showMenu)}
@@ -298,7 +302,6 @@ export default function WebViewScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 进度条 */}
           {loading && (
             <View className="h-0.5 bg-gray-100">
               <View 
@@ -351,17 +354,14 @@ export default function WebViewScreen() {
           </TouchableOpacity>
         )}
 
-        {/* WebView - 完全拦截优化 */}
+        {/* WebView */}
         <View className="flex-1">
           <WebView
             ref={webViewRef}
             source={{ uri: currentUrl }}
             style={{ flex: 1 }}
-            // 移动端User Agent
             userAgent={MOBILE_USER_AGENT}
-            // 导航状态变化
             onNavigationStateChange={handleNavigationStateChange}
-            // 加载状态
             onLoadStart={() => {
               setLoading(true);
               setProgress(0);
@@ -373,29 +373,22 @@ export default function WebViewScreen() {
               setLoading(false);
               setProgress(1);
             }}
-            // 拦截WebView消息（JS调用postMessage）
             onMessage={handleMessage}
-            // 拦截请求
             onShouldStartLoadWithRequest={shouldStartLoadWithRequest}
-            // 移动端优化设置
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            // iOS特定
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
             } : {})}
-            // Android特定
             {...(Platform.OS === 'android' ? {
               thirdPartyCookiesEnabled: true,
               cacheEnabled: true,
               loadWithOverviewMode: true,
               useWideViewPort: true,
             } : {})}
-            // 注入JS拦截代码
             injectedJavaScript={INTERCEPT_JS}
-            // 加载指示器
             startInLoadingState={true}
             renderLoading={() => (
               <View className="absolute inset-0 items-center justify-center bg-white">
