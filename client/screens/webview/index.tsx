@@ -137,10 +137,10 @@ true;
 `;
 };
 
-// 注入JS - 最小化拦截
+// 注入JS - 拦截所有跳转
 const INTERCEPT_JS = `
 (function() {
-  // 拦截 window.open，防止新窗口
+  // 拦截 window.open
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
       window.location.href = url;
@@ -148,7 +148,7 @@ const INTERCEPT_JS = `
     return null;
   };
   
-  // 拦截 intent 协议（Android 跳转APP）
+  // 拦截所有链接点击
   document.addEventListener('click', function(e) {
     var target = e.target;
     while (target && target.tagName !== 'A') {
@@ -157,11 +157,38 @@ const INTERCEPT_JS = `
     
     if (target && target.href) {
       var href = target.href;
-      // 阻止 intent 跳转 APP
+      
+      // 忽略空链接和锚点
+      if (!href || href === '#' || href.startsWith('javascript:')) {
+        return;
+      }
+      
+      // 阻止 intent 和其他APP协议
       if (href.startsWith('intent://') || href.startsWith('market://')) {
         e.preventDefault();
         e.stopPropagation();
+        return;
       }
+      
+      // 所有链接都在本WebView内处理
+      e.preventDefault();
+      e.stopPropagation();
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'navigate',
+        url: href
+      }));
+    }
+  }, true);
+  
+  // 拦截表单提交
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (form && form.action) {
+      e.preventDefault();
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'navigate',
+        url: form.action
+      }));
     }
   }, true);
 })();
@@ -241,7 +268,8 @@ export default function WebViewScreen() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate') {
-        // 导航已由 WebView 原生处理，这里只重新应用样式
+        // 使用 WebView 的 injectJavaScript 导航
+        webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
         setTimeout(() => {
           if (isLandscape) {
             webViewRef.current?.injectJavaScript(generateLandscapeCSS());
