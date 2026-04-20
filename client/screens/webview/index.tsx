@@ -56,12 +56,6 @@ const generateLandscapeCSS = () => {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    /* 隐藏侧边栏 - 更精确的选择器 */
-    [id*="sidebar"], [id*="aside"], [id*="menu"], 
-    [class*="sidebar-panel"], [class*="aside-panel"], [class*="drawer"],
-    .sidebar-panel, .aside-panel, .drawer, .drawer-menu {
-      display: none !important;
-    }
     /* 隐藏顶部导航（取消注释启用） */
     /*
     header, .header, [class*="header"], .navbar, [class*="navbar"], .top-bar, .topbar, nav, .nav {
