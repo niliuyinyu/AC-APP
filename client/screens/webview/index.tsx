@@ -26,7 +26,7 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 生成横屏CSS - 根据屏幕尺寸调整viewport宽度，不用scale
+// 生成横屏CSS - 40%缩放
 const generateLandscapeCSS = () => {
   return `
 (function() {
@@ -36,10 +36,6 @@ const generateLandscapeCSS = () => {
     style.id = 'mobile-style';
     document.head.appendChild(style);
   }
-  
-  // 获取屏幕高度作为横屏时的viewport宽度
-  var screenHeight = window.innerHeight || window.outerHeight || 600;
-  var targetWidth = Math.max(screenHeight * 1.5, 900); // 宽高比约1.5
   
   style.textContent = \`
     * { -webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important; }
@@ -51,6 +47,13 @@ const generateLandscapeCSS = () => {
       text-size-adjust: 100% !important;
       -webkit-user-select: none !important;
       user-select: none !important;
+    }
+    body {
+      transform: scale(0.4) !important;
+      transform-origin: top left !important;
+      width: 250% !important;
+      min-width: 250% !important;
+      min-height: 250% !important;
     }
     input, textarea, select {
       -webkit-user-select: auto !important;
@@ -79,23 +82,22 @@ const generateLandscapeCSS = () => {
     }
   \`;
   
-  // 设置viewport宽度
-  var viewport = document.querySelector('meta[name="viewport"]');
-  var newContent = 'width=' + targetWidth + ', initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
-  if (viewport) {
-    viewport.content = newContent;
-  } else {
-    var meta = document.createElement('meta');
-    meta.name = 'viewport';
-    meta.content = newContent;
-    document.head.appendChild(meta);
-  }
-  
-  // 刷新页面以应用viewport
+  // 滚动到顶部
   var scrollTimer = setTimeout(function() {
     window.scrollTo(0, 0);
     clearTimeout(scrollTimer);
   }, 100);
+  
+  // 设置viewport
+  var viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+  } else {
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    document.head.appendChild(meta);
+  }
 })();
 true;
 `;
