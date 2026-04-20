@@ -316,6 +316,7 @@ export default function WebViewScreen() {
           }}
         >
           <View className={`flex-row items-center ${isLandscape ? 'flex-col justify-center h-full px-1' : 'h-12 px-2'}`}>
+            {/* 返回按钮 */}
             <TouchableOpacity 
               className={`items-center justify-center ${isLandscape ? 'w-10 h-14' : 'w-10 h-12'}`}
               onPress={() => {
@@ -327,18 +328,28 @@ export default function WebViewScreen() {
               }}
             >
               <FontAwesome6 
-                name={canGoBack ? 'arrow-left' : 'xmark'} 
+                name={canGoBack ? 'arrow-left' : 'home'} 
                 size={18} 
                 color="#374151" 
               />
             </TouchableOpacity>
 
+            {/* 竖屏时显示标题和首页按钮 */}
             {!isLandscape && (
-              <View className="flex-1 px-2">
-                <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
-                  {currentTitleState}
-                </Text>
-              </View>
+              <>
+                <View className="flex-1 px-2">
+                  <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
+                    {currentTitleState}
+                  </Text>
+                </View>
+                {/* 首页按钮 */}
+                <TouchableOpacity 
+                  className="w-10 h-12 items-center justify-center"
+                  onPress={() => router.back()}
+                >
+                  <FontAwesome6 name="home" size={18} color="#374151" />
+                </TouchableOpacity>
+              </>
             )}
 
             {isLandscape ? (

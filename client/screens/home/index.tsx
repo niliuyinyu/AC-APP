@@ -83,19 +83,19 @@ export default function HomeScreen() {
         // 获取网站信息
         const predefined = WEBSITES.find(w => w.url === savedHomePage);
         if (predefined) {
-          router.replace('/webview', { url: predefined.url, title: predefined.name });
+          router.push('/webview', { url: predefined.url, title: predefined.name });
           return;
         }
         
         const custom = customSites.find(s => s.url === savedHomePage);
         if (custom) {
-          router.replace('/webview', { url: custom.url, title: custom.title });
+          router.push('/webview', { url: custom.url, title: custom.title });
           return;
         }
         
         const fav = favorites.find(f => f.url === savedHomePage);
         if (fav) {
-          router.replace('/webview', { url: fav.url, title: fav.title });
+          router.push('/webview', { url: fav.url, title: fav.title });
           return;
         }
       }
