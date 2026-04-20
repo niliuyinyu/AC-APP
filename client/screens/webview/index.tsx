@@ -26,8 +26,8 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 生成横屏CSS - 根据实际屏幕尺寸
-const generateLandscapeCSS = (screenWidth: number) => {
+// 生成横屏CSS - 60%缩放
+const generateLandscapeCSS = () => {
   return `
 (function() {
   var style = document.getElementById('mobile-style');
@@ -42,14 +42,17 @@ const generateLandscapeCSS = (screenWidth: number) => {
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      width: ${screenWidth}px !important;
-      min-width: ${screenWidth}px !important;
-      max-width: ${screenWidth}px !important;
       overflow-x: hidden !important;
       -webkit-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
       -webkit-user-select: none !important;
       user-select: none !important;
+    }
+    body {
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important;
+      min-width: 166.67% !important;
     }
     input, textarea, select {
       -webkit-user-select: auto !important;
@@ -76,11 +79,11 @@ const generateLandscapeCSS = (screenWidth: number) => {
   
   var viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) {
-    viewport.content = 'width=${screenWidth}, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
   } else {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
-    meta.content = 'width=${screenWidth}, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
     document.head.appendChild(meta);
   }
 })();
@@ -225,10 +228,8 @@ export default function WebViewScreen() {
       } else {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         setIsLandscape(true);
-        // 横屏时使用屏幕高度作为内容宽度
-        const landscapeWidth = screenSize.height;
         setTimeout(() => {
-          webViewRef.current?.injectJavaScript(generateLandscapeCSS(landscapeWidth));
+          webViewRef.current?.injectJavaScript(generateLandscapeCSS());
         }, 150);
       }
     } catch (error) {
@@ -256,7 +257,7 @@ export default function WebViewScreen() {
         webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
         setTimeout(() => {
           if (isLandscape) {
-            webViewRef.current?.injectJavaScript(generateLandscapeCSS(screenSize.height));
+            webViewRef.current?.injectJavaScript(generateLandscapeCSS());
           } else {
             webViewRef.current?.injectJavaScript(generatePortraitCSS());
           }
@@ -273,7 +274,7 @@ export default function WebViewScreen() {
     setProgress(1);
     setTimeout(() => {
       if (isLandscape) {
-        webViewRef.current?.injectJavaScript(generateLandscapeCSS(screenSize.height));
+        webViewRef.current?.injectJavaScript(generateLandscapeCSS());
       } else {
         webViewRef.current?.injectJavaScript(generatePortraitCSS());
       }
