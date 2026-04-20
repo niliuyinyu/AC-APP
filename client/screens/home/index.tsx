@@ -77,34 +77,40 @@ export default function HomeScreen() {
 
   // 启动时检查是否设置了主页，自动打开
   useEffect(() => {
+    let mounted = true;
+    
     const checkAndOpenHome = async () => {
+      if (!mounted) return;
       const savedHomePage = await storage.getHomePage();
-      if (savedHomePage) {
-        // 获取网站信息
-        const predefined = WEBSITES.find(w => w.url === savedHomePage);
-        if (predefined) {
-          router.push('/webview', { url: predefined.url, title: predefined.name });
-          return;
-        }
-        
-        const custom = customSites.find(s => s.url === savedHomePage);
-        if (custom) {
-          router.push('/webview', { url: custom.url, title: custom.title });
-          return;
-        }
-        
-        const fav = favorites.find(f => f.url === savedHomePage);
-        if (fav) {
-          router.push('/webview', { url: fav.url, title: fav.title });
-          return;
-        }
+      if (!mounted || !savedHomePage) return;
+      
+      // 获取网站信息
+      const predefined = WEBSITES.find(w => w.url === savedHomePage);
+      if (predefined) {
+        router.push('/webview', { url: predefined.url, title: predefined.name });
+        return;
+      }
+      
+      const sites = await storage.getCustomSites();
+      if (!mounted) return;
+      const custom = sites.find(s => s.url === savedHomePage);
+      if (custom) {
+        router.push('/webview', { url: custom.url, title: custom.title });
+        return;
+      }
+      
+      const favs = await storage.getFavorites();
+      if (!mounted) return;
+      const fav = favs.find(f => f.url === savedHomePage);
+      if (fav) {
+        router.push('/webview', { url: fav.url, title: fav.title });
       }
     };
     
-    if (homePage || customSites.length > 0 || favorites.length > 0) {
-      checkAndOpenHome();
-    }
-  }, [homePage, customSites, favorites]);
+    checkAndOpenHome();
+    
+    return () => { mounted = false; };
+  }, []); // 空依赖，只在挂载时执行一次
 
   const getHomeWebsite = (): Website | null => {
     // 优先检查预定义网站
