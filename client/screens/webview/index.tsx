@@ -26,7 +26,7 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 生成横屏CSS - 60%缩放
+// 生成横屏CSS - 60%缩放，隐藏顶部底部
 const generateLandscapeCSS = () => {
   return `
 (function() {
@@ -52,11 +52,37 @@ const generateLandscapeCSS = () => {
       transform: scale(0.6) !important;
       transform-origin: top left !important;
       width: 166.67% !important;
-      min-width: 166.67% !important;
+      min-height: 166.67% !important;
     }
     input, textarea, select {
       -webkit-user-select: auto !important;
       user-select: auto !important;
+    }
+    /* 隐藏顶部区域 */
+    header, .header, [class*="header"], .navbar, .nav, [class*="nav-bar"], .top-bar, .topbar {
+      display: none !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    /* 隐藏底部区域 */
+    footer, .footer, [class*="footer"], .bottom-bar, .toolbar, [class*="toolbar"], .tab-bar, .tabs {
+      display: none !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    /* 隐藏侧边栏 */
+    aside, .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, .menu, [class*="menu"] {
+      display: none !important;
+      width: 0 !important;
+    }
+    /* 主要内容区域撑满 */
+    main, .main, [class*="content"], .container, .wrapper, .page, body > * {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
     }
     table { 
       width: 100% !important; 
@@ -66,14 +92,10 @@ const generateLandscapeCSS = () => {
     td, th { 
       padding: 6px !important; 
       font-size: 13px !important;
-      white-space: nowrap !important;
     }
     input, select, textarea { 
       font-size: 16px !important; 
       min-height: 44px !important; 
-    }
-    .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, nav, header, footer {
-      display: none !important;
     }
   \`;
   
