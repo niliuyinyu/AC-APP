@@ -137,12 +137,10 @@ true;
 `;
 };
 
-// 注入JS - 最小化拦截，避免影响点击
+// 注入JS - 最小化拦截
 const INTERCEPT_JS = `
 (function() {
-  // 不拦截点击，让 WebView 原生处理
-  // 只拦截 window.open
-  
+  // 拦截 window.open，防止新窗口
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
       window.location.href = url;
@@ -150,15 +148,20 @@ const INTERCEPT_JS = `
     return null;
   };
   
-  // 拦截表单提交
-  document.addEventListener('submit', function(e) {
-    var form = e.target;
-    if (form && form.action) {
-      e.preventDefault();
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'navigate',
-        url: form.action
-      }));
+  // 拦截 intent 协议（Android 跳转APP）
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    while (target && target.tagName !== 'A') {
+      target = target.parentElement;
+    }
+    
+    if (target && target.href) {
+      var href = target.href;
+      // 阻止 intent 跳转 APP
+      if (href.startsWith('intent://') || href.startsWith('market://')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     }
   }, true);
 })();
