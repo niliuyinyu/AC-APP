@@ -444,11 +444,6 @@ export default function WebViewScreen() {
             source={{ uri: currentUrl }}
             style={{ flex: 1 }}
             userAgent={MOBILE_USER_AGENT}
-            onShouldStartLoadWithRequest={(request) => {
-              // 允许所有请求由 WebView 原生处理
-              // 这样点击坐标会正确映射
-              return true;
-            }}
             onNavigationStateChange={handleNavigationStateChange}
             onLoadStart={() => {
               setLoading(true);
