@@ -90,11 +90,13 @@ const generateLandscapeCSS = () => {
     document.head.appendChild(meta);
   }
   
-  // 滚动到顶部
+  // 滚动到顶部并重新加载以应用新viewport
   var scrollTimer = setTimeout(function() {
     window.scrollTo(0, 0);
+    // 重新加载页面以应用新的viewport设置
+    window.location.reload();
     clearTimeout(scrollTimer);
-  }, 100);
+  }, 200);
 })();
 true;
 `;
@@ -443,7 +445,7 @@ export default function WebViewScreen() {
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            scalesPageToFit={false}
+            scalesPageToFit={isLandscape}
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
