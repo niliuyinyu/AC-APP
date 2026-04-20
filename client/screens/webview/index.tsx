@@ -56,19 +56,20 @@ const generateLandscapeCSS = () => {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    /* 隐藏顶部导航 */
+    /* 隐藏侧边栏 */
+    aside, .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, .menu, [class*="menu"], .sidenav, [class*="sidenav"] {
+      display: none !important;
+      width: 0 !important;
+    }
+    /* 隐藏顶部导航（取消注释启用） */
+    /*
     header, .header, [class*="header"], .navbar, [class*="navbar"], .top-bar, .topbar, nav, .nav {
       display: none !important;
     }
+    */
     /* 底部工具栏（取消注释启用） */
     /*
     footer, .footer, [class*="footer"], .bottom-bar, .toolbar, [class*="toolbar"], .tab-bar, .tabs {
-      display: none !important;
-    }
-    */
-    /* 侧边栏（取消注释启用） */
-    /*
-    aside, .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, .menu, [class*="menu"] {
       display: none !important;
     }
     */
