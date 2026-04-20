@@ -447,6 +447,16 @@ export default function WebViewScreen() {
             source={{ uri: currentUrl }}
             style={{ flex: 1 }}
             userAgent={MOBILE_USER_AGENT}
+            originWhitelist={['*']}
+            onShouldStartLoadWithRequest={(request) => {
+              const url = request.url;
+              // 允许所有 http/https 链接
+              if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('about:')) {
+                return true;
+              }
+              // 阻止其他协议的链接（intent://, tel:, mailto: 等）
+              return false;
+            }}
             onNavigationStateChange={handleNavigationStateChange}
             onLoadStart={() => {
               setLoading(true);
