@@ -58,14 +58,6 @@ const generateLandscapeCSS = () => {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    /* 隐藏顶部区域 */
-    header, .header, [class*="header"], .navbar, .nav, [class*="nav-bar"], .top-bar, .topbar {
-      display: none !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
     /* 隐藏底部区域 */
     footer, .footer, [class*="footer"], .bottom-bar, .toolbar, [class*="toolbar"], .tab-bar, .tabs {
       display: none !important;
