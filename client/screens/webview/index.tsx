@@ -79,14 +79,14 @@ const generateLandscapeCSS = () => {
     }
   \`;
   
-  // 设置viewport宽度为屏幕高度的1.5倍
+  // 设置viewport宽度和缩放
   var viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) {
-    viewport.content = 'width=' + targetWidth + ', initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    viewport.content = 'width=' + targetWidth + ', initial-scale=0.4, maximum-scale=0.4, minimum-scale=0.4, user-scalable=no';
   } else {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
-    meta.content = 'width=' + targetWidth + ', initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    meta.content = 'width=' + targetWidth + ', initial-scale=0.4, maximum-scale=0.4, minimum-scale=0.4, user-scalable=no';
     document.head.appendChild(meta);
   }
   
