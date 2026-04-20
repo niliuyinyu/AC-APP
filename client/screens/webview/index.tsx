@@ -42,7 +42,7 @@ const generateLandscapeCSS = () => {
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      overflow-x: hidden !important;
+      overflow: auto !important;
       -webkit-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
       -webkit-user-select: none !important;
@@ -52,6 +52,7 @@ const generateLandscapeCSS = () => {
       transform: scale(0.6) !important;
       transform-origin: top left !important;
       width: 166.67% !important;
+      min-width: 166.67% !important;
       min-height: 166.67% !important;
     }
     input, textarea, select {
@@ -90,6 +91,9 @@ const generateLandscapeCSS = () => {
       min-height: 44px !important; 
     }
   \`;
+  
+  // 自动滚动到顶部显示右侧内容
+  window.scrollTo(0, 0);
   
   var viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) {
@@ -143,9 +147,12 @@ true;
 `;
 };
 
-// 注入JS - 拦截window.open
+// 注入JS - 最小化拦截，避免影响点击
 const INTERCEPT_JS = `
 (function() {
+  // 不拦截点击，让 WebView 原生处理
+  // 只拦截 window.open
+  
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
       window.location.href = url;
@@ -153,34 +160,7 @@ const INTERCEPT_JS = `
     return null;
   };
   
-  document.addEventListener('click', function(e) {
-    var target = e.target;
-    while (target && target.tagName !== 'A') {
-      target = target.parentElement;
-    }
-    
-    if (target && target.href) {
-      var href = target.href;
-      
-      if (!href || href === '#' || href === 'javascript:void(0)' || 
-          href === 'javascript:;' || href.startsWith('javascript:')) {
-        return;
-      }
-      
-      if (href.startsWith('#')) {
-        return;
-      }
-      
-      e.preventDefault();
-      e.stopPropagation();
-      
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'navigate',
-        url: href
-      }));
-    }
-  }, true);
-  
+  // 拦截表单提交
   document.addEventListener('submit', function(e) {
     var form = e.target;
     if (form && form.action) {
@@ -268,19 +248,17 @@ export default function WebViewScreen() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate') {
-        webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
+        // 导航已由 WebView 原生处理，这里只重新应用样式
         setTimeout(() => {
           if (isLandscape) {
             webViewRef.current?.injectJavaScript(generateLandscapeCSS());
-          } else {
-            webViewRef.current?.injectJavaScript(generatePortraitCSS());
           }
         }, 500);
       }
     } catch (e) {
       // 忽略
     }
-  }, [isLandscape, screenSize.height]);
+  }, [isLandscape]);
 
   // 页面加载完成后应用样式
   const handleLoadEnd = () => {
@@ -465,6 +443,11 @@ export default function WebViewScreen() {
             source={{ uri: currentUrl }}
             style={{ flex: 1 }}
             userAgent={MOBILE_USER_AGENT}
+            onShouldStartLoadWithRequest={(request) => {
+              // 允许所有请求由 WebView 原生处理
+              // 这样点击坐标会正确映射
+              return true;
+            }}
             onNavigationStateChange={handleNavigationStateChange}
             onLoadStart={() => {
               setLoading(true);
