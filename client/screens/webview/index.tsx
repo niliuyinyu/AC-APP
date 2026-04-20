@@ -609,7 +609,8 @@ export default function WebViewScreen() {
                   <Text className="text-gray-700 font-medium text-base">取消</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  className="flex-1 py-3 rounded-xl bg-[--accent] items-center"
+                  className="flex-1 py-3 rounded-xl items-center"
+                  style={{ backgroundColor: '#0EA5E9' }}
                   onPress={confirmAddFavorite}
                 >
                   <Text className="text-white font-medium text-base">确定</Text>
