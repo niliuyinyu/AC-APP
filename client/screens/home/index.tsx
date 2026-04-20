@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { storage, FavoriteItem } from '@/utils/storage';
+import { storage, FavoriteItem, CustomSite } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface Website {
@@ -48,14 +48,17 @@ export default function HomeScreen() {
   const router = useSafeRouter();
   const [homePage, setHomePage] = useState<string>('https://ac.nlyy.online');
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [customSites, setCustomSites] = useState<CustomSite[]>([]);
 
   const loadData = useCallback(async () => {
-    const [savedHomePage, savedFavorites] = await Promise.all([
+    const [savedHomePage, savedFavorites, savedCustomSites] = await Promise.all([
       storage.getHomePage(),
       storage.getFavorites(),
+      storage.getCustomSites(),
     ]);
     setHomePage(savedHomePage);
     setFavorites(savedFavorites);
+    setCustomSites(savedCustomSites);
   }, []);
 
   useFocusEffect(
@@ -148,6 +151,43 @@ export default function HomeScreen() {
                 </Text>
                 <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
                   {website.url.replace('https://', '')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {/* 自定义网站 */}
+            {customSites.map((site) => (
+              <TouchableOpacity
+                key={site.id}
+                className="w-[calc(50%-6px)] rounded-2xl p-4"
+                style={[
+                  styles.card,
+                  site.url === homePage && styles.cardActive
+                ]}
+                onPress={() => handleOpenWeb({ 
+                  id: site.id, 
+                  name: site.title, 
+                  url: site.url, 
+                  description: site.url,
+                  icon: (site.icon as any) || 'globe',
+                  color: '#F59E0B'
+                })}
+                activeOpacity={0.7}
+              >
+                <View 
+                  className="w-10 h-10 rounded-xl items-center justify-center mb-2"
+                  style={{ backgroundColor: '#F59E0B' + '15' }}
+                >
+                  <FontAwesome6 
+                    name={(site.icon as any) || 'globe'} 
+                    size={20} 
+                    color="#F59E0B" 
+                  />
+                </View>
+                <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
+                  {site.title}
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+                  {site.url.replace('https://', '').replace('http://', '')}
                 </Text>
               </TouchableOpacity>
             ))}

@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert, ScrollView, TextInput, Modal } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { storage } from '@/utils/storage';
+import { storage, CustomSite } from '@/utils/storage';
 
 interface Website {
   id: string;
@@ -42,10 +42,18 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const [homePage, setHomePage] = useState<string>('https://ac.nlyy.online');
   const [showHomeSelector, setShowHomeSelector] = useState(false);
+  const [customSites, setCustomSites] = useState<CustomSite[]>([]);
+  const [showAddSite, setShowAddSite] = useState(false);
+  const [newSiteTitle, setNewSiteTitle] = useState('');
+  const [newSiteUrl, setNewSiteUrl] = useState('');
 
   const loadHomePage = useCallback(async () => {
-    const data = await storage.getHomePage();
+    const [data, sites] = await Promise.all([
+      storage.getHomePage(),
+      storage.getCustomSites(),
+    ]);
     setHomePage(data);
+    setCustomSites(sites);
   }, []);
 
   useFocusEffect(
@@ -61,9 +69,53 @@ export default function SettingsScreen() {
     Alert.alert('设置成功', '主页已更新');
   };
 
+  const handleAddCustomSite = async () => {
+    if (!newSiteTitle.trim()) {
+      Alert.alert('提示', '请输入网站名称');
+      return;
+    }
+    if (!newSiteUrl.trim()) {
+      Alert.alert('提示', '请输入网站地址');
+      return;
+    }
+    
+    let url = newSiteUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    
+    await storage.addCustomSite({ title: newSiteTitle.trim(), url });
+    const sites = await storage.getCustomSites();
+    setCustomSites(sites);
+    setNewSiteTitle('');
+    setNewSiteUrl('');
+    setShowAddSite(false);
+    Alert.alert('添加成功', '自定义网站已添加');
+  };
+
+  const handleDeleteCustomSite = (site: CustomSite) => {
+    Alert.alert(
+      '删除网站',
+      `确定要删除"${site.title}"吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            await storage.removeCustomSite(site.id);
+            const sites = await storage.getCustomSites();
+            setCustomSites(sites);
+          },
+        },
+      ]
+    );
+  };
+
   const getHomeWebsiteName = () => {
     const website = WEBSITES.find(w => w.url === homePage);
-    return website?.name || homePage;
+    const customSite = customSites.find(s => s.url === homePage);
+    return website?.name || customSite?.title || homePage;
   };
 
   return (
@@ -128,8 +180,75 @@ export default function SettingsScreen() {
                   )}
                 </TouchableOpacity>
               ))}
+              {customSites.map((site, index) => (
+                <TouchableOpacity
+                  key={site.id}
+                  className={`flex-row items-center p-4 ${index > 0 || WEBSITES.length > 0 ? 'border-t border-gray-100' : ''}`}
+                  onPress={() => handleSetHomePage(site.url)}
+                  activeOpacity={0.7}
+                >
+                  <View 
+                    className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                    style={{ backgroundColor: '#F59E0B' + '15' }}
+                  >
+                    <FontAwesome6 name={(site.icon as any) || 'globe'} size={18} color="#F59E0B" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-800">{site.title}</Text>
+                    <Text className="text-xs text-gray-400 mt-0.5">{site.url}</Text>
+                  </View>
+                  {homePage === site.url && (
+                    <FontAwesome6 name="check" size={18} color="#0EA5E9" />
+                  )}
+                </TouchableOpacity>
+              ))}
             </View>
           )}
+        </View>
+
+        {/* 自定义网站管理 */}
+        <View className="px-5 mt-6">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-sm font-medium text-gray-500">自定义网站</Text>
+            <TouchableOpacity
+              className="flex-row items-center"
+              onPress={() => setShowAddSite(true)}
+            >
+              <FontAwesome6 name="plus" size={14} color="#0EA5E9" />
+              <Text className="text-sm text-blue-500 ml-1">添加</Text>
+            </TouchableOpacity>
+          </View>
+          <View className="bg-white rounded-2xl overflow-hidden" style={styles.card}>
+            {customSites.length === 0 ? (
+              <View className="p-4 items-center">
+                <Text className="text-sm text-gray-400">暂无自定义网站</Text>
+              </View>
+            ) : (
+              customSites.map((site, index) => (
+                <View
+                  key={site.id}
+                  className={`flex-row items-center p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}
+                >
+                  <View 
+                    className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                    style={{ backgroundColor: '#F59E0B' + '15' }}
+                  >
+                    <FontAwesome6 name={(site.icon as any) || 'globe'} size={18} color="#F59E0B" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-800">{site.title}</Text>
+                    <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>{site.url}</Text>
+                  </View>
+                  <TouchableOpacity
+                    className="w-8 h-8 items-center justify-center"
+                    onPress={() => handleDeleteCustomSite(site)}
+                  >
+                    <FontAwesome6 name="trash" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
         </View>
 
         {/* 功能说明 */}
@@ -204,6 +323,67 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* 添加自定义网站弹窗 */}
+      <Modal
+        visible={showAddSite}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddSite(false)}
+      >
+        <TouchableOpacity 
+          className="flex-1 bg-black/50 items-center justify-center"
+          activeOpacity={1}
+          onPress={() => setShowAddSite(false)}
+        >
+          <TouchableOpacity 
+            className="bg-white rounded-2xl mx-8 w-80 overflow-hidden"
+            activeOpacity={1}
+          >
+            <View className="px-5 py-4 border-b border-gray-100">
+              <Text className="text-lg font-semibold text-gray-800">添加自定义网站</Text>
+            </View>
+            <View className="px-5 py-4">
+              <Text className="text-sm text-gray-500 mb-2">网站名称</Text>
+              <TextInput
+                className="bg-gray-50 rounded-xl px-4 py-3 text-gray-800 border border-gray-200 mb-4"
+                value={newSiteTitle}
+                onChangeText={setNewSiteTitle}
+                placeholder="例如：我的网站"
+                placeholderTextColor="#9CA3AF"
+              />
+              <Text className="text-sm text-gray-500 mb-2">网站地址</Text>
+              <TextInput
+                className="bg-gray-50 rounded-xl px-4 py-3 text-gray-800 border border-gray-200"
+                value={newSiteUrl}
+                onChangeText={setNewSiteUrl}
+                placeholder="https://example.com"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+            <View className="px-5 pb-4 flex-row gap-3">
+              <TouchableOpacity 
+                className="flex-1 py-3 rounded-xl bg-gray-100 items-center"
+                onPress={() => {
+                  setShowAddSite(false);
+                  setNewSiteTitle('');
+                  setNewSiteUrl('');
+                }}
+              >
+                <Text className="text-gray-600 font-medium">取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                className="flex-1 py-3 rounded-xl bg-[--accent] items-center"
+                onPress={handleAddCustomSite}
+              >
+                <Text className="text-white font-medium">添加</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEYS = {
   FAVORITES: '@app_favorites',
   HOME_PAGE: '@app_home_page',
+  CUSTOM_SITES: '@app_custom_sites',
 };
 
 export interface FavoriteItem {
@@ -13,9 +14,18 @@ export interface FavoriteItem {
   addedAt: number;
 }
 
+export interface CustomSite {
+  id: string;
+  title: string;
+  url: string;
+  icon?: string;
+  order: number;
+}
+
 export interface StorageData {
   favorites: FavoriteItem[];
   homePage: string;
+  customSites: CustomSite[];
 }
 
 const DEFAULT_HOME_PAGE = 'https://ac.nlyy.online';
@@ -89,10 +99,71 @@ export const storage = {
     }
   },
 
+  // 获取自定义网站列表
+  async getCustomSites(): Promise<CustomSite[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_SITES);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('获取自定义网站失败:', error);
+      return [];
+    }
+  },
+
+  // 添加自定义网站
+  async addCustomSite(item: Omit<CustomSite, 'id' | 'order'>): Promise<CustomSite[]> {
+    try {
+      const sites = await this.getCustomSites();
+      const newItem: CustomSite = {
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        order: sites.length,
+      };
+      const updated = [...sites, newItem];
+      await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_SITES, JSON.stringify(updated));
+      return updated;
+    } catch (error) {
+      console.error('添加自定义网站失败:', error);
+      return [];
+    }
+  },
+
+  // 更新自定义网站
+  async updateCustomSite(id: string, updates: Partial<Omit<CustomSite, 'id'>>): Promise<CustomSite[]> {
+    try {
+      const sites = await this.getCustomSites();
+      const updated = sites.map(site => 
+        site.id === id ? { ...site, ...updates } : site
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_SITES, JSON.stringify(updated));
+      return updated;
+    } catch (error) {
+      console.error('更新自定义网站失败:', error);
+      return [];
+    }
+  },
+
+  // 删除自定义网站
+  async removeCustomSite(id: string): Promise<CustomSite[]> {
+    try {
+      const sites = await this.getCustomSites();
+      const updated = sites.filter(site => site.id !== id);
+      await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_SITES, JSON.stringify(updated));
+      return updated;
+    } catch (error) {
+      console.error('删除自定义网站失败:', error);
+      return [];
+    }
+  },
+
   // 清除所有数据
   async clearAll(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([STORAGE_KEYS.FAVORITES, STORAGE_KEYS.HOME_PAGE]);
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.FAVORITES, 
+        STORAGE_KEYS.HOME_PAGE,
+        STORAGE_KEYS.CUSTOM_SITES
+      ]);
     } catch (error) {
       console.error('清除数据失败:', error);
     }
