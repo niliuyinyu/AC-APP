@@ -585,13 +585,13 @@ export default function WebViewScreen() {
             onPress={() => setShowAddFavorite(false)}
           >
             <TouchableOpacity 
-              className="bg-white rounded-2xl mx-8 w-72 overflow-hidden"
+              className="bg-white rounded-2xl mx-8 w-80 overflow-hidden px-4"
               activeOpacity={1}
             >
-              <View className="px-5 py-4 border-b border-gray-100">
-                <Text className="text-lg font-semibold text-gray-800">添加收藏</Text>
+              <View className="py-4 border-b border-gray-100">
+                <Text className="text-lg font-semibold text-gray-800 text-center">添加收藏</Text>
               </View>
-              <View className="px-5 py-4">
+              <View className="py-4">
                 <Text className="text-sm text-gray-500 mb-2">收藏名称</Text>
                 <TextInput
                   className="bg-gray-50 rounded-xl px-4 py-3 text-gray-800 border border-gray-200"
@@ -601,18 +601,18 @@ export default function WebViewScreen() {
                   placeholderTextColor="#9CA3AF"
                 />
               </View>
-              <View className="px-5 pb-4 flex-row gap-3">
+              <View className="pb-4 flex-row gap-4">
                 <TouchableOpacity 
-                  className="flex-1 py-3 rounded-xl bg-gray-100 items-center"
+                  className="flex-1 py-3 rounded-xl bg-gray-200 items-center"
                   onPress={() => setShowAddFavorite(false)}
                 >
-                  <Text className="text-gray-600 font-medium">取消</Text>
+                  <Text className="text-gray-700 font-medium text-base">取消</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   className="flex-1 py-3 rounded-xl bg-[--accent] items-center"
                   onPress={confirmAddFavorite}
                 >
-                  <Text className="text-white font-medium">确定</Text>
+                  <Text className="text-white font-medium text-base">确定</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
