@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -242,6 +243,7 @@ export default function WebViewScreen() {
     });
 
     return () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
     };
   }, []);
@@ -320,6 +322,7 @@ export default function WebViewScreen() {
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
+      <StatusBar hidden={isLandscape} barStyle="dark-content" />
       <View className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}>
         {/* Header */}
         <View 
@@ -354,6 +357,29 @@ export default function WebViewScreen() {
                 </Text>
               </View>
             )}
+
+            {isLandscape ? (
+              <>
+                {/* 横屏模式：收藏按钮 */}
+                <TouchableOpacity 
+                  className="items-center justify-center w-10 h-14"
+                  onPress={handleAddFavorite}
+                >
+                  <FontAwesome6 
+                    name={isFavorite ? 'bookmark' : 'bookmark'} 
+                    size={18} 
+                    color={isFavorite ? '#0EA5E9' : '#374151'} 
+                  />
+                </TouchableOpacity>
+                {/* 横屏模式：设为主页按钮 */}
+                <TouchableOpacity 
+                  className="items-center justify-center w-10 h-14"
+                  onPress={handleSetHomePage}
+                >
+                  <FontAwesome6 name="house" size={18} color="#374151" />
+                </TouchableOpacity>
+              </>
+            ) : null}
 
             <TouchableOpacity 
               className={`items-center justify-center ${isLandscape ? 'w-10 h-14' : 'w-10 h-12'}`}
