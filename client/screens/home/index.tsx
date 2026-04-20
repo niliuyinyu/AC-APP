@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,6 +74,37 @@ export default function HomeScreen() {
   const handleOpenFavorite = (fav: FavoriteItem) => {
     router.push('/webview', { url: fav.url, title: fav.title });
   };
+
+  // 启动时检查是否设置了主页，自动打开
+  useEffect(() => {
+    const checkAndOpenHome = async () => {
+      const savedHomePage = await storage.getHomePage();
+      if (savedHomePage) {
+        // 获取网站信息
+        const predefined = WEBSITES.find(w => w.url === savedHomePage);
+        if (predefined) {
+          router.replace('/webview', { url: predefined.url, title: predefined.name });
+          return;
+        }
+        
+        const custom = customSites.find(s => s.url === savedHomePage);
+        if (custom) {
+          router.replace('/webview', { url: custom.url, title: custom.title });
+          return;
+        }
+        
+        const fav = favorites.find(f => f.url === savedHomePage);
+        if (fav) {
+          router.replace('/webview', { url: fav.url, title: fav.title });
+          return;
+        }
+      }
+    };
+    
+    if (homePage || customSites.length > 0 || favorites.length > 0) {
+      checkAndOpenHome();
+    }
+  }, [homePage, customSites, favorites]);
 
   const getHomeWebsite = (): Website | null => {
     // 优先检查预定义网站
