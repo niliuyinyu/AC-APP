@@ -462,7 +462,7 @@ export default function WebViewScreen() {
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            scalesPageToFit={isLandscape}
+            scalesPageToFit={false}
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
