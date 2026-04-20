@@ -56,10 +56,11 @@ const generateLandscapeCSS = () => {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    /* 隐藏侧边栏 */
-    aside, .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, .menu, [class*="menu"], .sidenav, [class*="sidenav"] {
+    /* 隐藏侧边栏 - 更精确的选择器 */
+    [id*="sidebar"], [id*="aside"], [id*="menu"], 
+    [class*="sidebar-panel"], [class*="aside-panel"], [class*="drawer"],
+    .sidebar-panel, .aside-panel, .drawer, .drawer-menu {
       display: none !important;
-      width: 0 !important;
     }
     /* 隐藏顶部导航（取消注释启用） */
     /*
