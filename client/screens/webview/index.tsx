@@ -26,7 +26,7 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 生成横屏CSS - 60%缩放，隐藏顶部底部
+// 生成横屏CSS - 根据屏幕尺寸调整viewport宽度，不用scale
 const generateLandscapeCSS = () => {
   return `
 (function() {
@@ -36,6 +36,10 @@ const generateLandscapeCSS = () => {
     style.id = 'mobile-style';
     document.head.appendChild(style);
   }
+  
+  // 获取屏幕高度作为横屏时的viewport宽度
+  var screenHeight = window.innerHeight || window.outerHeight || 600;
+  var targetWidth = Math.max(screenHeight * 1.5, 900); // 宽高比约1.5
   
   style.textContent = \`
     * { -webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important; }
@@ -48,13 +52,6 @@ const generateLandscapeCSS = () => {
       -webkit-user-select: none !important;
       user-select: none !important;
     }
-    body {
-      transform: scale(0.6) !important;
-      transform-origin: top left !important;
-      width: 166.67% !important;
-      min-width: 166.67% !important;
-      min-height: 166.67% !important;
-    }
     input, textarea, select {
       -webkit-user-select: auto !important;
       user-select: auto !important;
@@ -62,20 +59,10 @@ const generateLandscapeCSS = () => {
     /* 隐藏底部区域 */
     footer, .footer, [class*="footer"], .bottom-bar, .toolbar, [class*="toolbar"], .tab-bar, .tabs {
       display: none !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
     }
     /* 隐藏侧边栏 */
     aside, .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, .menu, [class*="menu"] {
       display: none !important;
-      width: 0 !important;
-    }
-    /* 主要内容区域撑满 */
-    main, .main, [class*="content"], .container, .wrapper, .page, body > * {
-      margin-top: 0 !important;
-      padding-top: 0 !important;
     }
     table { 
       width: 100% !important; 
@@ -92,18 +79,23 @@ const generateLandscapeCSS = () => {
     }
   \`;
   
-  // 自动滚动到顶部显示右侧内容
-  window.scrollTo(0, 0);
-  
+  // 设置viewport宽度
   var viewport = document.querySelector('meta[name="viewport"]');
+  var newContent = 'width=' + targetWidth + ', initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
   if (viewport) {
-    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    viewport.content = newContent;
   } else {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
-    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    meta.content = newContent;
     document.head.appendChild(meta);
   }
+  
+  // 刷新页面以应用viewport
+  var scrollTimer = setTimeout(function() {
+    window.scrollTo(0, 0);
+    clearTimeout(scrollTimer);
+  }, 100);
 })();
 true;
 `;
@@ -113,35 +105,26 @@ true;
 const generatePortraitCSS = () => {
   return `
 (function() {
+  var style = document.getElementById('mobile-style');
+  if (style) {
+    style.textContent = '';
+  }
+  
   var viewport = document.querySelector('meta[name="viewport"]');
+  var newContent = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
   if (viewport) {
-    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    viewport.content = newContent;
   } else {
     var meta = document.createElement('meta');
     meta.name = 'viewport';
-    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    meta.content = newContent;
     document.head.appendChild(meta);
   }
   
-  var style = document.getElementById('mobile-style');
-  if (style) {
-    style.textContent = \`
-      * { -webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important; }
-      html, body {
-        -webkit-text-size-adjust: 100% !important;
-        text-size-adjust: 100% !important;
-        -webkit-user-select: none !important;
-        user-select: none !important;
-      }
-      input, textarea, select {
-        -webkit-user-select: auto !important;
-        user-select: auto !important;
-      }
-      table { width: 100% !important; max-width: 100% !important; }
-      td, th { padding: 6px !important; font-size: 13px !important; }
-      input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-    \`;
-  }
+  var scrollTimer = setTimeout(function() {
+    window.scrollTo(0, 0);
+    clearTimeout(scrollTimer);
+  }, 100);
 })();
 true;
 `;
