@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { storage, CustomSite } from '@/utils/storage';
+import { storage, CustomSite, FavoriteItem } from '@/utils/storage';
 
 interface Website {
   id: string;
@@ -43,17 +43,20 @@ export default function SettingsScreen() {
   const [homePage, setHomePage] = useState<string>('https://ac.nlyy.online');
   const [showHomeSelector, setShowHomeSelector] = useState(false);
   const [customSites, setCustomSites] = useState<CustomSite[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showAddSite, setShowAddSite] = useState(false);
   const [newSiteTitle, setNewSiteTitle] = useState('');
   const [newSiteUrl, setNewSiteUrl] = useState('');
 
   const loadHomePage = useCallback(async () => {
-    const [data, sites] = await Promise.all([
+    const [data, sites, favs] = await Promise.all([
       storage.getHomePage(),
       storage.getCustomSites(),
+      storage.getFavorites(),
     ]);
     setHomePage(data);
     setCustomSites(sites);
+    setFavorites(favs);
   }, []);
 
   useFocusEffect(
@@ -115,7 +118,8 @@ export default function SettingsScreen() {
   const getHomeWebsiteName = () => {
     const website = WEBSITES.find(w => w.url === homePage);
     const customSite = customSites.find(s => s.url === homePage);
-    return website?.name || customSite?.title || homePage;
+    const fav = favorites.find(f => f.url === homePage);
+    return website?.name || customSite?.title || fav?.title || '未设置';
   };
 
   return (
@@ -158,10 +162,32 @@ export default function SettingsScreen() {
           {/* 网站选择列表 */}
           {showHomeSelector && (
             <View className="bg-white rounded-2xl mt-3 overflow-hidden" style={styles.card}>
+              {/* 不设置主页选项 */}
+              <TouchableOpacity
+                className="flex-row items-center p-4 border-b border-gray-100"
+                onPress={() => handleSetHomePage('')}
+                activeOpacity={0.7}
+              >
+                <View 
+                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                  style={{ backgroundColor: '#6B728015' }}
+                >
+                  <FontAwesome6 name="circle-xmark" size={18} color="#6B7280" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-gray-800">不设置主页</Text>
+                  <Text className="text-xs text-gray-400 mt-0.5">首页显示提示信息</Text>
+                </View>
+                {homePage === '' && (
+                  <FontAwesome6 name="check" size={18} color="#0EA5E9" />
+                )}
+              </TouchableOpacity>
+
+              {/* 预定义网站 */}
               {WEBSITES.map((website, index) => (
                 <TouchableOpacity
                   key={website.id}
-                  className={`flex-row items-center p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}
+                  className={`flex-row items-center p-4 ${index > 0 ? 'border-t border-gray-100' : 'border-t border-gray-100'}`}
                   onPress={() => handleSetHomePage(website.url)}
                   activeOpacity={0.7}
                 >
@@ -180,10 +206,12 @@ export default function SettingsScreen() {
                   )}
                 </TouchableOpacity>
               ))}
+
+              {/* 自定义网站 */}
               {customSites.map((site, index) => (
                 <TouchableOpacity
                   key={site.id}
-                  className={`flex-row items-center p-4 ${index > 0 || WEBSITES.length > 0 ? 'border-t border-gray-100' : ''}`}
+                  className="flex-row items-center p-4 border-t border-gray-100"
                   onPress={() => handleSetHomePage(site.url)}
                   activeOpacity={0.7}
                 >
@@ -202,6 +230,37 @@ export default function SettingsScreen() {
                   )}
                 </TouchableOpacity>
               ))}
+
+              {/* 收藏网站 */}
+              {favorites.length > 0 && (
+                <>
+                  <View className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                    <Text className="text-xs text-gray-500 font-medium">收藏</Text>
+                  </View>
+                  {favorites.map((fav, index) => (
+                    <TouchableOpacity
+                      key={fav.id}
+                      className="flex-row items-center p-4 border-t border-gray-100"
+                      onPress={() => handleSetHomePage(fav.url)}
+                      activeOpacity={0.7}
+                    >
+                      <View 
+                        className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                        style={{ backgroundColor: '#EC489915' }}
+                      >
+                        <FontAwesome6 name="bookmark" size={18} color="#EC4899" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-medium text-gray-800">{fav.title}</Text>
+                        <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>{fav.url}</Text>
+                      </View>
+                      {homePage === fav.url && (
+                        <FontAwesome6 name="check" size={18} color="#0EA5E9" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
             </View>
           )}
         </View>

@@ -46,7 +46,7 @@ const WEBSITES: Website[] = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useSafeRouter();
-  const [homePage, setHomePage] = useState<string>('https://ac.nlyy.online');
+  const [homePage, setHomePage] = useState<string>('');
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [customSites, setCustomSites] = useState<CustomSite[]>([]);
 
@@ -56,7 +56,7 @@ export default function HomeScreen() {
       storage.getFavorites(),
       storage.getCustomSites(),
     ]);
-    setHomePage(savedHomePage);
+    setHomePage(savedHomePage || '');
     setFavorites(savedFavorites);
     setCustomSites(savedCustomSites);
   }, []);
@@ -75,8 +75,35 @@ export default function HomeScreen() {
     router.push('/webview', { url: fav.url, title: fav.title });
   };
 
-  const getHomeWebsite = () => {
-    return WEBSITES.find(w => w.url === homePage) || WEBSITES[0];
+  const getHomeWebsite = (): Website | null => {
+    // 优先检查预定义网站
+    const predefined = WEBSITES.find(w => w.url === homePage);
+    if (predefined) return predefined;
+    
+    // 检查自定义网站
+    const custom = customSites.find(s => s.url === homePage);
+    if (custom) return {
+      id: custom.id,
+      name: custom.title,
+      url: custom.url,
+      description: custom.url,
+      icon: (custom.icon as any) || 'globe',
+      color: '#F59E0B'
+    };
+    
+    // 检查收藏
+    const fav = favorites.find(f => f.url === homePage);
+    if (fav) return {
+      id: fav.id,
+      name: fav.title,
+      url: fav.url,
+      description: fav.url,
+      icon: 'bookmark',
+      color: '#EC4899'
+    };
+    
+    // 没有设置主页
+    return null;
   };
 
   return (
@@ -92,34 +119,60 @@ export default function HomeScreen() {
         </View>
 
         {/* 快速入口 - 主页网站 */}
-        <TouchableOpacity
-          className="mx-5 rounded-2xl overflow-hidden"
-          style={styles.homeCard}
-          onPress={() => handleOpenWeb(getHomeWebsite())}
-          activeOpacity={0.8}
-        >
-          <View 
-            className="h-32 items-center justify-center"
-            style={{ backgroundColor: getHomeWebsite().color }}
+        {getHomeWebsite() ? (
+          <TouchableOpacity
+            className="mx-5 rounded-2xl overflow-hidden"
+            style={styles.homeCard}
+            onPress={() => handleOpenWeb(getHomeWebsite()!)}
+            activeOpacity={0.8}
           >
-            <FontAwesome6 
-              name={getHomeWebsite().icon as any} 
-              size={48} 
-              color="white" 
-            />
-          </View>
-          <View className="bg-white px-4 py-3">
-            <View className="flex-row items-center">
-              <Text className="text-base font-semibold text-gray-800 flex-1">
-                {getHomeWebsite().name}
-              </Text>
-              <View className="bg-blue-50 px-2 py-0.5 rounded-full">
-                <Text className="text-xs text-blue-600 font-medium">主页</Text>
-              </View>
+            <View 
+              className="h-32 items-center justify-center"
+              style={{ backgroundColor: getHomeWebsite()!.color }}
+            >
+              <FontAwesome6 
+                name={getHomeWebsite()!.icon as any} 
+                size={48} 
+                color="white" 
+              />
             </View>
-            <Text className="text-xs text-gray-500 mt-1">{getHomeWebsite().description}</Text>
-          </View>
-        </TouchableOpacity>
+            <View className="bg-white px-4 py-3">
+              <View className="flex-row items-center">
+                <Text className="text-base font-semibold text-gray-800 flex-1">
+                  {getHomeWebsite()!.name}
+                </Text>
+                <View className="bg-blue-50 px-2 py-0.5 rounded-full">
+                  <Text className="text-xs text-blue-600 font-medium">主页</Text>
+                </View>
+              </View>
+              <Text className="text-xs text-gray-500 mt-1">{getHomeWebsite()!.description}</Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            className="mx-5 rounded-2xl overflow-hidden"
+            style={styles.homeCard}
+            onPress={() => router.push('/settings')}
+            activeOpacity={0.8}
+          >
+            <View 
+              className="h-32 items-center justify-center bg-gray-100"
+            >
+              <FontAwesome6 name="house" size={48} color="#9CA3AF" />
+            </View>
+            <View className="bg-white px-4 py-3">
+              <View className="flex-row items-center">
+                <Text className="text-base font-semibold text-gray-800 flex-1">
+                  请设置主页
+                </Text>
+                <View className="bg-orange-50 px-2 py-0.5 rounded-full">
+                  <Text className="text-xs text-orange-600 font-medium">点击设置</Text>
+                </View>
+              </View>
+              <Text className="text-xs text-gray-500 mt-1">在设置中选择一个网站作为主页</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* 网站列表 */}
         <View className="px-5 mt-6">
