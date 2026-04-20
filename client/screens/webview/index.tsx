@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { WebView, WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,96 +25,105 @@ const MOBILE_USER_AGENT = Platform.select({
   web: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
 });
 
-// 竖屏样式
-const PORTRAIT_CSS = `
-var style = document.createElement('style');
-style.id = 'mobile-optimize-style';
-style.textContent = \`
-  * { -webkit-tap-highlight-color: transparent !important; }
-  body { 
-    -webkit-text-size-adjust: 100% !important;
-    text-size-adjust: 100% !important;
+// 生成横屏CSS - 根据实际屏幕尺寸
+const generateLandscapeCSS = (screenWidth: number) => {
+  return `
+(function() {
+  var style = document.getElementById('mobile-style');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'mobile-style';
+    document.head.appendChild(style);
   }
-  input, textarea, select {
-    -webkit-user-select: auto !important;
-    user-select: auto !important;
-  }
-  table { width: 100% !important; max-width: 100% !important; }
-  td, th { padding: 6px !important; font-size: 13px !important; }
-  input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-\`;
-if (!document.getElementById('mobile-optimize-style')) {
-  document.head.appendChild(style);
-}
-if (!document.querySelector('meta[name="viewport"]')) {
-  var meta = document.createElement('meta');
-  meta.name = 'viewport';
-  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-  document.head.appendChild(meta);
-}
-`;
-
-// 横屏样式 - 缩放60%
-const LANDSCAPE_CSS = `
-var style = document.getElementById('mobile-optimize-style');
-if (style) {
+  
   style.textContent = \`
-    * { -webkit-tap-highlight-color: transparent !important; }
-    body { 
+    * { -webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: ${screenWidth}px !important;
+      min-width: ${screenWidth}px !important;
+      max-width: ${screenWidth}px !important;
+      overflow-x: hidden !important;
       -webkit-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
-      transform: scale(0.6) !important;
-      transform-origin: top left !important;
-      width: 166.67% !important;
-      min-width: 166.67vw !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
     }
-    html, body { overflow-x: auto !important; }
     input, textarea, select {
       -webkit-user-select: auto !important;
       user-select: auto !important;
     }
-    table { width: 100% !important; max-width: 100% !important; }
-    td, th { padding: 6px !important; font-size: 12px !important; }
-    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-    /* 隐藏不必要的侧边栏 */
-    .sidebar, .aside, [class*="sidebar"], [class*="aside"] {
+    table { 
+      width: 100% !important; 
+      max-width: 100% !important;
+      font-size: 14px !important;
+    }
+    td, th { 
+      padding: 6px !important; 
+      font-size: 13px !important;
+      white-space: nowrap !important;
+    }
+    input, select, textarea { 
+      font-size: 16px !important; 
+      min-height: 44px !important; 
+    }
+    .sidebar, .aside, [class*="sidebar"], [class*="aside"], .side-bar, nav, header, footer {
       display: none !important;
     }
   \`;
-} else {
-  var newStyle = document.createElement('style');
-  newStyle.id = 'mobile-optimize-style';
-  newStyle.textContent = \`
-    * { -webkit-tap-highlight-color: transparent !important; }
-    body { 
-      -webkit-text-size-adjust: 100% !important;
-      text-size-adjust: 100% !important;
-      transform: scale(0.6) !important;
-      transform-origin: top left !important;
-      width: 166.67% !important;
-    }
-    html, body { overflow-x: auto !important; }
-    input, textarea, select {
-      -webkit-user-select: auto !important;
-      user-select: auto !important;
-    }
-    table { width: 100% !important; max-width: 100% !important; }
-    td, th { padding: 6px !important; font-size: 12px !important; }
-    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-  \`;
-  document.head.appendChild(newStyle);
-}
-// 更新viewport
-var viewport = document.querySelector('meta[name="viewport"]');
-if (viewport) {
-  viewport.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
-} else {
-  var meta = document.createElement('meta');
-  meta.name = 'viewport';
-  meta.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
-  document.head.appendChild(meta);
-}
+  
+  var viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.content = 'width=${screenWidth}, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+  } else {
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=${screenWidth}, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    document.head.appendChild(meta);
+  }
+})();
+true;
 `;
+};
+
+// 生成竖屏CSS
+const generatePortraitCSS = () => {
+  return `
+(function() {
+  var viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+  } else {
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+    document.head.appendChild(meta);
+  }
+  
+  var style = document.getElementById('mobile-style');
+  if (style) {
+    style.textContent = \`
+      * { -webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important; }
+      html, body {
+        -webkit-text-size-adjust: 100% !important;
+        text-size-adjust: 100% !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+      }
+      input, textarea, select {
+        -webkit-user-select: auto !important;
+        user-select: auto !important;
+      }
+      table { width: 100% !important; max-width: 100% !important; }
+      td, th { padding: 6px !important; font-size: 13px !important; }
+      input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
+    \`;
+  }
+})();
+true;
+`;
+};
 
 // 注入JS - 拦截window.open
 const INTERCEPT_JS = `
@@ -167,86 +177,6 @@ const INTERCEPT_JS = `
 true;
 `;
 
-// 横屏切换JS
-const LANDSCAPE_SWITCH_JS = `
-var style = document.getElementById('mobile-optimize-style');
-if (style) {
-  style.textContent = \`
-    * { -webkit-tap-highlight-color: transparent !important; }
-    body { 
-      -webkit-text-size-adjust: 100% !important;
-      text-size-adjust: 100% !important;
-      transform: scale(0.6) !important;
-      transform-origin: top left !important;
-      width: 166.67% !important;
-    }
-    html, body { overflow-x: auto !important; }
-    input, textarea, select {
-      -webkit-user-select: auto !important;
-      user-select: auto !important;
-    }
-    table { width: 100% !important; max-width: 100% !important; }
-    td, th { padding: 6px !important; font-size: 12px !important; }
-    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-  \`;
-} else {
-  var newStyle = document.createElement('style');
-  newStyle.id = 'mobile-optimize-style';
-  newStyle.textContent = \`
-    * { -webkit-tap-highlight-color: transparent !important; }
-    body { 
-      -webkit-text-size-adjust: 100% !important;
-      text-size-adjust: 100% !important;
-      transform: scale(0.6) !important;
-      transform-origin: top left !important;
-      width: 166.67% !important;
-    }
-    html, body { overflow-x: auto !important; }
-    input, textarea, select {
-      -webkit-user-select: auto !important;
-      user-select: auto !important;
-    }
-    table { width: 100% !important; max-width: 100% !important; }
-    td, th { padding: 6px !important; font-size: 12px !important; }
-    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-  \`;
-  document.head.appendChild(newStyle);
-}
-var viewport = document.querySelector('meta[name="viewport"]');
-if (viewport) {
-  viewport.content = 'width=1600, initial-scale=0.6, maximum-scale=3.0, user-scalable=yes';
-}
-true;
-`;
-
-// 竖屏切换JS
-const PORTRAIT_SWITCH_JS = `
-var style = document.getElementById('mobile-optimize-style');
-if (style) {
-  style.textContent = \`
-    * { -webkit-tap-highlight-color: transparent !important; }
-    body { 
-      -webkit-text-size-adjust: 100% !important;
-      text-size-adjust: 100% !important;
-      transform: none !important;
-      width: 100% !important;
-    }
-    input, textarea, select {
-      -webkit-user-select: auto !important;
-      user-select: auto !important;
-    }
-    table { width: 100% !important; max-width: 100% !important; }
-    td, th { padding: 6px !important; font-size: 13px !important; }
-    input, select, textarea { font-size: 16px !important; min-height: 44px !important; }
-  \`;
-}
-var viewport = document.querySelector('meta[name="viewport"]');
-if (viewport) {
-  viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-}
-true;
-`;
-
 export default function WebViewScreen() {
   const insets = useSafeAreaInsets();
   const router = useSafeRouter();
@@ -255,6 +185,12 @@ export default function WebViewScreen() {
   
   const currentUrl = params.url || 'https://ac.nlyy.online';
   const currentTitle = params.title || '暖通服务';
+
+  // 获取屏幕尺寸
+  const [screenSize, setScreenSize] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
 
   const [currentTitleState, setCurrentTitleState] = useState(currentTitle);
   const [loading, setLoading] = useState(true);
@@ -268,23 +204,31 @@ export default function WebViewScreen() {
   const [currentUrlState, setCurrentUrlState] = useState(currentUrl);
   const [isLandscape, setIsLandscape] = useState(false);
 
+  // 监听屏幕尺寸变化
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenSize({ width: window.width, height: window.height });
+    });
+    return () => subscription?.remove();
+  }, []);
+
   // 切换横屏/竖屏
   const toggleOrientation = async () => {
     try {
       if (isLandscape) {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
         setIsLandscape(false);
-        // 恢复竖屏样式
         setTimeout(() => {
-          webViewRef.current?.injectJavaScript(PORTRAIT_SWITCH_JS);
-        }, 100);
+          webViewRef.current?.injectJavaScript(generatePortraitCSS());
+        }, 150);
       } else {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         setIsLandscape(true);
-        // 应用横屏样式
+        // 横屏时使用屏幕高度作为内容宽度
+        const landscapeWidth = screenSize.height;
         setTimeout(() => {
-          webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
-        }, 100);
+          webViewRef.current?.injectJavaScript(generateLandscapeCSS(landscapeWidth));
+        }, 150);
       }
     } catch (error) {
       console.log('Orientation error:', error);
@@ -308,30 +252,28 @@ export default function WebViewScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate') {
         webViewRef.current?.injectJavaScript(`window.location.href = "${data.url}"; true;`);
-        // 切换后应用当前方向的样式
         setTimeout(() => {
           if (isLandscape) {
-            webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
+            webViewRef.current?.injectJavaScript(generateLandscapeCSS(screenSize.height));
           } else {
-            webViewRef.current?.injectJavaScript(PORTRAIT_SWITCH_JS);
+            webViewRef.current?.injectJavaScript(generatePortraitCSS());
           }
         }, 500);
       }
     } catch (e) {
       // 忽略
     }
-  }, [isLandscape]);
+  }, [isLandscape, screenSize.height]);
 
   // 页面加载完成后应用样式
   const handleLoadEnd = () => {
     setLoading(false);
     setProgress(1);
-    // 加载完成后应用当前方向的样式
     setTimeout(() => {
       if (isLandscape) {
-        webViewRef.current?.injectJavaScript(LANDSCAPE_SWITCH_JS);
+        webViewRef.current?.injectJavaScript(generateLandscapeCSS(screenSize.height));
       } else {
-        webViewRef.current?.injectJavaScript(PORTRAIT_CSS);
+        webViewRef.current?.injectJavaScript(generatePortraitCSS());
       }
     }, 300);
   };
@@ -378,18 +320,13 @@ export default function WebViewScreen() {
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right', 'bottom']}>
-      <View 
-        className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}
-        style={isLandscape ? { flexDirection: 'row' } : {}}
-      >
+      <View className={`flex-1 bg-[--background] ${isLandscape ? 'flex-row' : ''}`}>
         {/* Header */}
         <View 
           className={`bg-white border-gray-100 ${isLandscape ? 'border-r border-b' : 'border-b'}`}
           style={{ 
             paddingTop: isLandscape ? 0 : insets.top,
             width: isLandscape ? 50 : '100%',
-            height: isLandscape ? '100%' : undefined,
-            minHeight: isLandscape ? undefined : 0,
           }}
         >
           <View className={`flex-row items-center ${isLandscape ? 'flex-col justify-center h-full px-1' : 'h-12 px-2'}`}>
@@ -433,7 +370,7 @@ export default function WebViewScreen() {
           {!isLandscape && (
             <View className="h-0.5 bg-gray-100">
               <View 
-                className="h-full bg-[--accent]" 
+                className="h-full bg-[--accent}" 
                 style={{ width: `${progress * 100}%` }}
               />
             </View>
@@ -481,10 +418,7 @@ export default function WebViewScreen() {
         )}
 
         {/* WebView */}
-        <View 
-          className="flex-1"
-          style={isLandscape ? { width: '100%' } : {}}
-        >
+        <View className="flex-1">
           <WebView
             ref={webViewRef}
             source={{ uri: currentUrl }}
@@ -503,6 +437,7 @@ export default function WebViewScreen() {
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
             domStorageEnabled={true}
+            scalesPageToFit={false}
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
@@ -510,8 +445,8 @@ export default function WebViewScreen() {
             {...(Platform.OS === 'android' ? {
               thirdPartyCookiesEnabled: true,
               cacheEnabled: true,
-              loadWithOverviewMode: true,
-              useWideViewPort: true,
+              loadWithOverviewMode: false,
+              useWideViewPort: false,
             } : {})}
             injectedJavaScript={INTERCEPT_JS}
             startInLoadingState={true}
