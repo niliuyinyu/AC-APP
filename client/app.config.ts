@@ -36,29 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "origin": process.env.EXPO_PUBLIC_BACKEND_BASE_URL
         }
       ] : 'expo-router',
-      "expo-splash-screen",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": `允许空调地暖服务App访问您的相册，以便您上传或保存图片。`,
-          "cameraPermission": `允许空调地暖服务App使用您的相机，以便您直接拍摄照片上传。`,
-          "microphonePermission": `允许空调地暖服务App访问您的麦克风，以便您拍摄带有声音的视频。`
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": `空调地暖服务App需要访问您的位置以提供周边服务及导航功能。`
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": `空调地暖服务App需要访问相机以拍摄照片和视频。`,
-          "microphonePermission": `空调地暖服务App需要访问麦克风以录制视频声音。`,
-          "recordAudioAndroid": true
-        }
-      ]
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true
