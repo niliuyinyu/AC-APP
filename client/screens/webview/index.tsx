@@ -374,7 +374,7 @@ export default function WebViewScreen() {
                   className="w-10 h-12 items-center justify-center"
                   onPress={() => router.back()}
                 >
-                  <FontAwesome6 name="home" size={18} color="#374151" />
+                  <FontAwesome6 name="house" size={18} color="#374151" />
                 </TouchableOpacity>
               </>
             )}
