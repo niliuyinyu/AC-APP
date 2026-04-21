@@ -36,14 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "origin": process.env.EXPO_PUBLIC_BACKEND_BASE_URL
         }
       ] : 'expo-router',
-      [
-        "expo-splash-screen",
-        {
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#f0f7f6"
-        }
-      ],
+      "expo-splash-screen",
       [
         "expo-image-picker",
         {
