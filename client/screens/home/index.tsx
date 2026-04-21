@@ -7,6 +7,16 @@ import { Screen } from '@/components/Screen';
 import { storage, FavoriteItem, CustomSite } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
+// 提取域名显示
+function extractDomain(url: string): string {
+  try {
+    const hostname = url.replace(/^https?:\/\//, '').split('/')[0];
+    return hostname;
+  } catch {
+    return url;
+  }
+}
+
 interface Website {
   id: string;
   name: string;
@@ -123,7 +133,7 @@ export default function HomeScreen() {
       id: custom.id,
       name: custom.title,
       url: custom.url,
-      description: custom.url,
+      description: extractDomain(custom.url),
       icon: (custom.icon as any) || 'globe',
       color: '#F59E0B'
     };
@@ -134,7 +144,7 @@ export default function HomeScreen() {
       id: fav.id,
       name: fav.title,
       url: fav.url,
-      description: fav.url,
+      description: extractDomain(fav.url),
       icon: 'bookmark',
       color: '#EC4899'
     };
