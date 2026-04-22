@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import axios from "axios";
 import { getSupabaseClient } from "./storage/database/supabase-client";
 
 const app = express();
@@ -15,131 +16,91 @@ app.get('/api/v1/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// ============ 产品相关 API ============
+// ============ 飞书多维表格配置 ============
+const FEISHU_APP_ID = 'cli_a93b98d2f9ba9bd2';
+const FEISHU_APP_SECRET = 'diyVoehdcQqmSJEU3cohpfbFYwVO17Ca';
+const FEISHU_APP_TOKEN = 'YSupbyd7Ga91Pys2YfAcUd0snsf';
+const FEISHU_TABLE_ID = 'tblpVEtIa3jaYYqj';
 
-// 获取产品分类列表
-app.get('/api/v1/products/categories', async (req, res) => {
-  try {
-    const client = getSupabaseClient();
-    const { data, error } = await client
-      .from('products')
-      .select('category')
-      .eq('is_active', true)
-      .order('category');
-    
-    if (error) throw new Error(`查询分类失败: ${error.message}`);
-    
-    // 去重
-    const categories = [...new Set(data?.map(item => item.category) || [])];
-    res.json({ categories });
-  } catch (err: any) {
-    console.error('获取分类失败:', err);
-    res.status(500).json({ error: err.message });
+// 获取飞书访问令牌
+let feishuTokenCache: { token: string; expireAt: number } | null = null;
+
+async function getFeishuToken(): Promise<string> {
+  // 检查缓存
+  if (feishuTokenCache && feishuTokenCache.expireAt > Date.now()) {
+    return feishuTokenCache.token;
   }
-});
 
-// 获取产品列表（可选按分类筛选）
+  const response = await axios.post(
+    'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
+    {
+      app_id: FEISHU_APP_ID,
+      app_secret: FEISHU_APP_SECRET,
+    }
+  );
+
+  if (response.data.code !== 0) {
+    throw new Error(`获取飞书Token失败: ${response.data.msg}`);
+  }
+
+  feishuTokenCache = {
+    token: response.data.tenant_access_token,
+    expireAt: Date.now() + (response.data.expire - 60) * 1000,
+  };
+
+  return feishuTokenCache.token;
+}
+
+// 获取飞书多维表格产品数据
+async function getFeishuProducts(): Promise<any[]> {
+  const token = await getFeishuToken();
+
+  const response = await axios.get(
+    `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records`,
+    {
+      params: { page_size: 100 },
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (response.data.code !== 0) {
+    throw new Error(`获取飞书数据失败: ${response.data.msg}`);
+  }
+
+  return response.data.data.items.map((item: any) => ({
+    id: item.record_id,
+    name: item.fields['文本']?.toString() || item.record_id,
+    brand: item.fields['品牌'] || '',
+    specifications: item.fields['规格'] || '',
+    unit: item.fields['单位'] || '',
+    material: item.fields['材质'] || '',
+    features: item.fields['特点'] || '',
+    image_url: item.fields['图片']?.[0]?.token || null,
+  }));
+}
+
+// ============ 产品相关 API（飞书多维表格）============
+
+// 获取产品列表
 app.get('/api/v1/products', async (req, res) => {
   try {
-    const client = getSupabaseClient();
-    const { category } = req.query;
-    
-    let query = client
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('category')
-      .order('name');
-    
-    if (category) {
-      query = query.eq('category', category as string);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(`查询产品失败: ${error.message}`);
-    
-    res.json({ products: data });
+    const products = await getFeishuProducts();
+    const brands = [...new Set(products.map(p => p.brand).filter(Boolean))];
+    res.json({ products, brands });
   } catch (err: any) {
     console.error('获取产品失败:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 添加新产品
-app.post('/api/v1/products', async (req, res) => {
+// 获取品牌列表
+app.get('/api/v1/products/brands', async (req, res) => {
   try {
-    const client = getSupabaseClient();
-    const { name, brand, category, specifications, unit, price, description, image_url } = req.body;
-    
-    if (!name || !brand || !category) {
-      res.status(400).json({ error: '缺少必填字段：name, brand, category' });
-      return;
-    }
-    
-    const { data, error } = await client
-      .from('products')
-      .insert({ 
-        name, 
-        brand, 
-        category, 
-        specifications, 
-        unit: unit || '个', 
-        price, 
-        description, 
-        image_url 
-      })
-      .select()
-      .single();
-    
-    if (error) throw new Error(`添加产品失败: ${error.message}`);
-    
-    res.json({ product: data });
+    const products = await getFeishuProducts();
+    const brands = [...new Set(products.map(p => p.brand).filter(Boolean))];
+    res.json({ brands });
   } catch (err: any) {
-    console.error('添加产品失败:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 更新产品
-app.put('/api/v1/products/:id', async (req, res) => {
-  try {
-    const client = getSupabaseClient();
-    const { id } = req.params;
-    const updates = req.body;
-    updates.updated_at = new Date().toISOString();
-    
-    const { data, error } = await client
-      .from('products')
-      .update(updates)
-      .eq('id', parseInt(id))
-      .select()
-      .single();
-    
-    if (error) throw new Error(`更新产品失败: ${error.message}`);
-    
-    res.json({ product: data });
-  } catch (err: any) {
-    console.error('更新产品失败:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 删除产品（软删除）
-app.delete('/api/v1/products/:id', async (req, res) => {
-  try {
-    const client = getSupabaseClient();
-    const { id } = req.params;
-    
-    const { error } = await client
-      .from('products')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', parseInt(id));
-    
-    if (error) throw new Error(`删除产品失败: ${error.message}`);
-    
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error('删除产品失败:', err);
+    console.error('获取品牌失败:', err);
     res.status(500).json({ error: err.message });
   }
 });
