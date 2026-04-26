@@ -16,6 +16,30 @@ app.get('/api/v1/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// ============ APP 版本检测 ============
+const DEFAULT_VERSION = '1.0.0';
+const DEFAULT_APK_URL = 'https://你的APK下载链接.apk';
+
+app.get('/api/v1/version', (req, res) => {
+  const version = (global as any).APP_VERSION || DEFAULT_VERSION;
+  const downloadUrl = (global as any).APK_DOWNLOAD_URL || DEFAULT_APK_URL;
+  const forceUpdate = (global as any).FORCE_UPDATE || false;
+  res.json({ version, downloadUrl, forceUpdate });
+});
+
+// 更新版本号（运维人员调用）
+app.put('/api/v1/version', (req, res) => {
+  const { version, downloadUrl, forceUpdate } = req.body;
+  if (!version) {
+    res.status(400).json({ error: '版本号不能为空' });
+    return;
+  }
+  (global as any).APP_VERSION = version;
+  (global as any).APK_DOWNLOAD_URL = downloadUrl || DEFAULT_APK_URL;
+  (global as any).FORCE_UPDATE = forceUpdate || false;
+  res.json({ success: true, version, downloadUrl });
+});
+
 // ============ 飞书多维表格配置 ============
 const FEISHU_APP_ID = 'cli_a93b98d2f9ba9bd2';
 const FEISHU_APP_SECRET = 'diyVoehdcQqmSJEU3cohpfbFYwVO17Ca';
