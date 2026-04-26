@@ -504,6 +504,9 @@ export default function WebViewScreen() {
               cacheEnabled: true,
               loadWithOverviewMode: false,
               useWideViewPort: false,
+              // 忽略 SSL 证书错误，允许访问自签名证书的网站
+              ignoreSslError: true,
+              javaScriptEnabled: true,
             } : {})}
             injectedJavaScript={INTERCEPT_JS}
             startInLoadingState={true}

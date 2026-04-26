@@ -54,7 +54,7 @@ const WEBSITES: Website[] = [
   {
     id: 'weihua',
     name: '维护云平台',
-    url: 'https://www.weihuacloud.top:8888',
+    url: 'http://www.weihuacloud.top:8888',
     description: '设备维护与管理',
     icon: 'cloud',
     color: '#F59E0B',
