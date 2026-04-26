@@ -36,7 +36,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "origin": process.env.EXPO_PUBLIC_BACKEND_BASE_URL
         }
       ] : 'expo-router',
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-updates",
+        {
+          "username": process.env.EAS_USERNAME || "anonymous",
+          "developmentBehavior": "automatic"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
