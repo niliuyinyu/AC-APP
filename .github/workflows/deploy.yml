@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
       
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -30,27 +31,12 @@ jobs:
         run: pnpm run build
         working-directory: ./server
       
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-token: ${{ secrets.EXPO_TOKEN }}
-          expo-cache: true
-      
-      - name: Install EAS CLI
-        run: npx eas-cli@latest --version
-      
-      - name: Configure EAS
-        env:
-          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
-        run: |
-          echo "$EAS_TOKEN" | npx eas-cli@latest login --json
-          npx eas-cli@latest update:configure --non-interactive --platform android
-        working-directory: ./client
-      
       - name: Publish EAS Update
         if: success()
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
         run: |
+          echo "$EAS_TOKEN" > eas_token.txt
+          npx eas-cli@latest login --token-file eas_token.txt
           npx eas-cli@latest update --branch production --message "${{ github.event.head_commit.message }}"
         working-directory: ./client
