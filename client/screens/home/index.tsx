@@ -262,8 +262,10 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-            {/* 自定义网站 */}
-            {customSites.map((site) => (
+            {/* 自定义网站（过滤掉与预置网站重复的） */}
+            {customSites
+              .filter(site => !WEBSITES.some(w => w.url === site.url))
+              .map((site) => (
               <TouchableOpacity
                 key={site.id}
                 className="w-[calc(50%-6px)] rounded-2xl p-4"
@@ -307,7 +309,13 @@ export default function HomeScreen() {
           <View className="px-5 mt-6">
             <Text className="text-base font-semibold text-[--foreground] mb-3">我的收藏</Text>
             <View className="gap-2">
-              {favorites.slice(0, 5).map((fav) => (
+              {favorites
+                .filter(fav => 
+                  !WEBSITES.some(w => w.url === fav.url) && 
+                  !customSites.some(c => c.url === fav.url)
+                )
+                .slice(0, 5)
+                .map((fav) => (
                 <TouchableOpacity
                   key={fav.id}
                   className="flex-row items-center bg-white rounded-xl p-3"
