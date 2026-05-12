@@ -51,14 +51,6 @@ const WEBSITES: Website[] = [
     icon: 'chart-line',
     color: '#8B5CF6',
   },
-  {
-    id: 'weihua',
-    name: '渭华',
-    url: 'http://www.weihuacloud.top:8888',
-    description: '设备维护与管理',
-    icon: 'cloud',
-    color: '#F59E0B',
-  },
 ];
 
 export default function HomeScreen() {
