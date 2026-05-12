@@ -17,7 +17,7 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // ============ APP 版本检测 ============
-const DEFAULT_VERSION = '1.0.0';
+const DEFAULT_VERSION = '0.1.1';
 const DEFAULT_APK_URL = 'https://你的APK下载链接.apk';
 
 app.get('/api/v1/version', (req, res) => {
