@@ -27,6 +27,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
+      - name: Auto increment version
+        id: version
+        run: |
+          # 获取当前版本号
+          CURRENT_VERSION=$(grep -oP '"version": "\K[^"]+' client/app.config.ts)
+          echo "当前版本: $CURRENT_VERSION"
+          
+          # 分割版本号
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # 自动递增 patch 版本
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "新版本: $NEW_VERSION"
+          
+          # 更新版本号
+          sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" client/app.config.ts
+          
+          # 更新后端版本号
+          sed -i "s/const DEFAULT_VERSION = '$CURRENT_VERSION'/const DEFAULT_VERSION = '$NEW_VERSION'/" server/src/index.ts
+          
+          # 输出更新后的版本供后续步骤使用
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+      
+      - name: Show updated version
+        run: |
+          echo "即将发布的版本: ${{ env.NEW_VERSION }}"
+          grep "version" client/app.config.ts | head -1
+      
       - name: Build server
         run: pnpm run build
         working-directory: ./server
