@@ -8,7 +8,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     "name": appName,
-    "slug": slugAppName,
+    "slug": "hvav",
+    "projectId": "eeecb53d-09cd-4c52-989a-b775a118f80d",
     "version": "0.1.1",
     "orientation": "default",
     "icon": "./assets/images/icon.png",

@@ -3,17 +3,32 @@
     "version": ">= 13.0.0"
   },
   "build": {
-    "production": {
-      "channel": "production",
-      "autoIncrement": true
-    },
     "development": {
-      "channel": "development"
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
     "production": {
-      "channel": "production"
+      "android": {
+        "serviceAccountKeyPath": "./path-to.json",
+        "track": "production"
+      }
     }
+  },
+  "updates": {
+    "url": "https://u.expo.dev/eeecb53d-09cd-4c52-989a-b775a118f80d",
+    "releaseChannel": "production"
   }
 }
