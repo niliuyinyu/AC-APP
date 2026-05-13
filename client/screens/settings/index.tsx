@@ -47,6 +47,7 @@ export default function SettingsScreen() {
   const [showAddSite, setShowAddSite] = useState(false);
   const [newSiteTitle, setNewSiteTitle] = useState('');
   const [newSiteUrl, setNewSiteUrl] = useState('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const loadHomePage = useCallback(async () => {
     const [data, sites, favs] = await Promise.all([
@@ -113,6 +114,33 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleCheckUpdate = async () => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/version`);
+      const data = await response.json();
+      
+      if (data.version > Constants.expoConfig?.extra?.eas?.projectId ? '1.0.0' : Constants.expoConfig?.extra?.eas?.projectId || '0.0.0') {
+        Alert.alert(
+          '发现新版本',
+          `最新版本: ${data.version}\n\n是否前往下载？`,
+          [
+            { text: '取消', style: 'cancel' },
+            { 
+              text: '下载', 
+              onPress: () => {
+                Linking.openURL(data.downloadUrl);
+              }
+            },
+          ]
+        );
+      } else {
+        Alert.alert('已是最新版本', '当前版本已是最新，无需更新。');
+      }
+    } catch (error) {
+      Alert.alert('检查更新失败', '无法获取版本信息，请稍后重试。');
+    }
   };
 
   const getHomeWebsiteName = () => {
@@ -373,8 +401,18 @@ export default function SettingsScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-base font-medium text-gray-800">暖通服务</Text>
-                <Text className="text-xs text-gray-400 mt-1">版本 1.0.0</Text>
+                <Text className="text-xs text-gray-400 mt-1">版本 {Constants.expoConfig?.version || '1.0.0'}</Text>
               </View>
+              <TouchableOpacity
+                className="px-4 py-2 rounded-xl"
+                style={{ backgroundColor: '#0EA5E9' + '15' }}
+                onPress={handleCheckUpdate}
+                disabled={checkingUpdate}
+              >
+                <Text className="text-sm font-medium" style={{ color: '#0EA5E9' }}>
+                  {checkingUpdate ? '检查中...' : '检查更新'}
+                </Text>
+              </TouchableOpacity>
             </View>
             <Text className="text-xs text-gray-300 mt-4">
               专为空调地暖行业打造的数据服务平台，支持手机端优化浏览
