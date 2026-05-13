@@ -46,6 +46,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         }
       ]
     ],
+    "updates": {
+      "url": "https://u.expo.dev/eeecb53d-09cd-4c52-989a-b775a118f80d"
+    },
     "experiments": {
       "typedRoutes": true
     }
