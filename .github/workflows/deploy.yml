@@ -66,7 +66,7 @@ jobs:
       - name: Publish EAS Update
         if: success()
         env:
-          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas update --channel production --message "版本 ${{ env.NEW_VERSION }}: ${{ github.event.head_commit.message }}"
         working-directory: ./client
