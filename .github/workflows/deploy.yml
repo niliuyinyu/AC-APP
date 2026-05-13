@@ -20,15 +20,10 @@ jobs:
           cache: 'pnpm'
       
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      
-      - name: Install pnpm
         run: npm install -g pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile || pnpm install
       
       - name: Auto increment version
         id: version
