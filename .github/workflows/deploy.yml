@@ -68,5 +68,5 @@ jobs:
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
         run: |
-          eas update --branch production --message "版本 ${{ env.NEW_VERSION }}: ${{ github.event.head_commit.message }}"
+          eas update:publish --branch production --message "版本 ${{ env.NEW_VERSION }}: ${{ github.event.head_commit.message }}"
         working-directory: ./client
