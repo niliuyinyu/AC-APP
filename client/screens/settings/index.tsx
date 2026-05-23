@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert, ScrollView, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Screen } from '@/components/Screen';
 import { storage, CustomSite, FavoriteItem } from '@/utils/storage';
 
@@ -120,11 +121,12 @@ export default function SettingsScreen() {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/version`);
       const data = await response.json();
+      const currentVersion = Constants.expoConfig?.version || '0.0.0';
       
-      if (data.version > Constants.expoConfig?.extra?.eas?.projectId ? '1.0.0' : Constants.expoConfig?.extra?.eas?.projectId || '0.0.0') {
+      if (data.version && data.version > currentVersion) {
         Alert.alert(
           '发现新版本',
-          `最新版本: ${data.version}\n\n是否前往下载？`,
+          `最新版本: ${data.version}\n当前版本: ${currentVersion}\n\n是否前往下载？`,
           [
             { text: '取消', style: 'cancel' },
             { 
@@ -136,7 +138,7 @@ export default function SettingsScreen() {
           ]
         );
       } else {
-        Alert.alert('已是最新版本', '当前版本已是最新，无需更新。');
+        Alert.alert('已是最新版本', `当前版本 ${currentVersion} 已是最新，无需更新。`);
       }
     } catch (error) {
       Alert.alert('检查更新失败', '无法获取版本信息，请稍后重试。');
