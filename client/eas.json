@@ -15,10 +15,7 @@
     },
     "production": {
       "android": {
-        "buildType": "apk",
-        "splits": {
-          "abi": ["arm64-v8a"]
-        }
+        "buildType": "apk"
       }
     }
   },
