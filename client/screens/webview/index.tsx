@@ -217,6 +217,11 @@ export default function WebViewScreen() {
   const [favTitle, setFavTitle] = useState(currentTitle);
   const [currentUrlState, setCurrentUrlState] = useState(currentUrl);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // 超时计时器
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 监听屏幕尺寸变化
   useEffect(() => {
@@ -256,8 +261,38 @@ export default function WebViewScreen() {
     return () => {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
+
+  // 设置加载超时
+  const startTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setLoadError('加载超时，请检查网络或网站是否可访问');
+    }, 30000); // 30秒超时
+  };
+
+  // 清除超时
+  const clearTimeoutTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // 重试加载
+  const handleRetry = () => {
+    setLoadError(null);
+    setLoading(true);
+    setProgress(0);
+    setRetryCount(prev => prev + 1);
+    webViewRef.current?.reload();
+  };
 
   // 处理JS发送的消息
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
@@ -281,6 +316,7 @@ export default function WebViewScreen() {
   const handleLoadEnd = () => {
     setLoading(false);
     setProgress(1);
+    clearTimeoutTimer();
     setTimeout(() => {
       if (isLandscape) {
         webViewRef.current?.injectJavaScript(generateLandscapeCSS());
@@ -288,6 +324,13 @@ export default function WebViewScreen() {
         webViewRef.current?.injectJavaScript(generatePortraitCSS());
       }
     }, 300);
+  };
+
+  // 处理加载错误
+  const handleError = (syntheticEvent: any) => {
+    setLoading(false);
+    setLoadError('网页加载失败，请检查网络或网站是否可访问');
+    clearTimeoutTimer();
   };
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
@@ -485,11 +528,22 @@ export default function WebViewScreen() {
             onLoadStart={() => {
               setLoading(true);
               setProgress(0);
+              setLoadError(null);
+              startTimeout();
             }}
             onLoadProgress={({ nativeEvent }) => {
               setProgress(nativeEvent.progress);
             }}
             onLoadEnd={handleLoadEnd}
+            onError={handleError}
+            onHttpError={(event) => {
+              const { statusCode } = event.nativeEvent;
+              if (statusCode >= 400) {
+                setLoadError(`HTTP 错误: ${statusCode}`);
+                setLoading(false);
+                clearTimeoutTimer();
+              }
+            }}
             onMessage={handleMessage}
             allowsBackForwardNavigationGestures={true}
             javaScriptEnabled={true}
@@ -517,6 +571,31 @@ export default function WebViewScreen() {
               </View>
             )}
           />
+
+          {/* 错误提示 */}
+          {loadError && (
+            <View className="absolute inset-0 items-center justify-center bg-gray-50">
+              <View className="items-center px-8">
+                <FontAwesome6 name="exclamation-circle" size={48} color="#EF4444" />
+                <Text className="mt-4 text-base text-gray-700 text-center">{loadError}</Text>
+                <Text className="mt-2 text-sm text-gray-500 text-center">{currentUrl}</Text>
+                <View className="flex-row mt-6">
+                  <TouchableOpacity 
+                    className="px-6 py-3 bg-gray-200 rounded-full mr-3"
+                    onPress={() => router.back()}
+                  >
+                    <Text className="text-gray-700">返回</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    className="px-6 py-3 bg-blue-500 rounded-full"
+                    onPress={handleRetry}
+                  >
+                    <Text className="text-white">重试</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* 底部导航栏 - 竖屏时显示 */}
