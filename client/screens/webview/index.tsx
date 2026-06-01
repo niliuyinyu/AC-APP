@@ -561,6 +561,18 @@ export default function WebViewScreen() {
               // 忽略 SSL 证书错误，允许访问自签名证书的网站
               ignoreSslError: true,
               javaScriptEnabled: true,
+              // 允许加载混合内容（HTTP和HTTPS混合）
+              mixedContentMode: 'always',
+              // 允许访问文件
+              allowFileAccess: true,
+              // 允许内容访问
+              contentAccess: true,
+              // 允许访问内容 URL
+              allowContentAccess: true,
+              // 媒体播放设置
+              mediaPlaybackRequiresUserAction: false,
+              // 允许后台播放
+              allowsInlineMediaPlayback: true,
             } : {})}
             injectedJavaScript={INTERCEPT_JS}
             startInLoadingState={true}
