@@ -133,9 +133,21 @@ true;
 `;
 };
 
-// 注入JS - 拦截所有跳转
+// 注入JS - 拦截所有跳转并绕过WebView检测
 const INTERCEPT_JS = `
 (function() {
+  // 绕过WebView检测
+  Object.defineProperty(navigator, 'userAgent', {
+    get: function() {
+      return 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+    }
+  });
+  
+  // 隐藏WebView特征
+  if (window.webkit && window.webkit.messageHandlers) {
+    // 伪装成普通浏览器
+  }
+  
   // 拦截 window.open
   window.open = function(url, name, specs) {
     if (url && url !== 'about:blank' && url !== '') {
@@ -549,6 +561,7 @@ export default function WebViewScreen() {
             javaScriptEnabled={true}
             domStorageEnabled={true}
             scalesPageToFit={isLandscape}
+            applicationNameForUserAgent="Mozilla/5.0 (Linux; Android 10; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
@@ -591,18 +604,24 @@ export default function WebViewScreen() {
                 <FontAwesome6 name="exclamation-circle" size={48} color="#EF4444" />
                 <Text className="mt-4 text-base text-gray-700 text-center">{loadError}</Text>
                 <Text className="mt-2 text-sm text-gray-500 text-center">{currentUrl}</Text>
-                <View className="flex-row mt-6">
+                <View className="flex-row mt-6 flex-wrap justify-center">
                   <TouchableOpacity 
-                    className="px-6 py-3 bg-gray-200 rounded-full mr-3"
+                    className="px-6 py-3 bg-gray-200 rounded-full mr-3 mb-2"
                     onPress={() => router.back()}
                   >
                     <Text className="text-gray-700">返回</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    className="px-6 py-3 bg-blue-500 rounded-full"
+                    className="px-6 py-3 bg-blue-500 rounded-full mr-3 mb-2"
                     onPress={handleRetry}
                   >
                     <Text className="text-white">重试</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    className="px-6 py-3 bg-green-500 rounded-full mb-2"
+                    onPress={() => Linking.openURL(currentUrl)}
+                  >
+                    <Text className="text-white">用浏览器打开</Text>
                   </TouchableOpacity>
                 </View>
               </View>
