@@ -568,7 +568,10 @@ export default function WebViewScreen() {
             } : {})}
             {...(Platform.OS === 'android' ? {
               thirdPartyCookiesEnabled: true,
+              // 启用缓存
               cacheEnabled: true,
+              // 缓存模式：优先使用缓存
+              cacheMode: 'LOAD_CACHE_ELSE_NETWORK',
               loadWithOverviewMode: false,
               useWideViewPort: false,
               // 忽略 SSL 证书错误，允许访问自签名证书的网站
@@ -586,6 +589,8 @@ export default function WebViewScreen() {
               mediaPlaybackRequiresUserAction: false,
               // 允许后台播放
               allowsInlineMediaPlayback: true,
+              // 启用数据库
+              databaseEnabled: true,
             } : {})}
             injectedJavaScript={INTERCEPT_JS}
             startInLoadingState={true}
