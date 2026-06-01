@@ -565,32 +565,46 @@ export default function WebViewScreen() {
             {...(Platform.OS === 'ios' ? {
               allowsInlineMediaPlayback: true,
               bounces: true,
+              // iOS 第三方 Cookie
+              allowInlineMediaPlayback: true,
+              mediaCaptures: 'allowed',
             } : {})}
             {...(Platform.OS === 'android' ? {
+              // 开启第三方 Cookie（Next.js 站点依赖）
               thirdPartyCookiesEnabled: true,
-              // 启用缓存
-              cacheEnabled: true,
-              // 缓存模式：优先使用缓存
-              cacheMode: 'LOAD_CACHE_ELSE_NETWORK',
-              loadWithOverviewMode: false,
-              useWideViewPort: false,
-              // 忽略 SSL 证书错误，允许访问自签名证书的网站
-              ignoreSslError: true,
-              javaScriptEnabled: true,
+              // DOM 存储
+              domStorageEnabled: true,
+              // 禁用 WebView 缓存（解决 304 空内容渲染异常）
+              cacheEnabled: false,
+              // 使用默认缓存模式
+              cacheMode: 'LOAD_DEFAULT',
+              // 自适应屏幕
+              loadWithOverviewMode: true,
+              useWideViewPort: true,
               // 允许加载混合内容（HTTP和HTTPS混合）
               mixedContentMode: 'always',
+              // JavaScript
+              javaScriptEnabled: true,
               // 允许访问文件
               allowFileAccess: true,
               // 允许内容访问
               contentAccess: true,
-              // 允许访问内容 URL
               allowContentAccess: true,
               // 媒体播放设置
               mediaPlaybackRequiresUserAction: false,
-              // 允许后台播放
               allowsInlineMediaPlayback: true,
-              // 启用数据库
+              // 数据库
               databaseEnabled: true,
+              // 地理定位
+              geolocationEnabled: true,
+              // 设置文本编码
+              defaultTextEncodingName: 'UTF-8',
+              // 允许访问原始资源
+              allowUniversalAccessFromFileURLs: true,
+              allowFileAccessFromFileURLs: true,
+              // 禁用 SSL 证书验证（仅用于开发）
+              // 注意：生产环境应移除此配置
+              // ignoreCertificateError: true,
             } : {})}
             injectedJavaScript={INTERCEPT_JS}
             startInLoadingState={true}
